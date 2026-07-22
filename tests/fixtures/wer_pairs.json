@@ -1,0 +1,76 @@
+{
+  "_comment": "Hand-computed corpus scoring cases on already-clean strings (raw path). WER = word edits / reference words; CER = char edits / reference chars (spaces count).",
+  "cases": [
+    {
+      "name": "identical",
+      "references": [
+        "আমি ভাত খাই"
+      ],
+      "hypotheses": [
+        "আমি ভাত খাই"
+      ],
+      "expected_wer": 0.0,
+      "expected_cer": 0.0
+    },
+    {
+      "name": "one_word_substituted",
+      "references": [
+        "আমি ভাত খাই"
+      ],
+      "hypotheses": [
+        "আমি ডাল খাই"
+      ],
+      "expected_wer": 0.3333333333333333,
+      "expected_cer": 0.18181818181818182
+    },
+    {
+      "name": "one_word_deleted",
+      "references": [
+        "আমি ভাত খাই আজ"
+      ],
+      "hypotheses": [
+        "আমি ভাত খাই"
+      ],
+      "expected_wer": 0.25,
+      "expected_cer": 0.21428571428571427
+    },
+    {
+      "name": "code_switch_identical",
+      "references": [
+        "আমি bank এ যাব"
+      ],
+      "hypotheses": [
+        "আমি bank এ যাব"
+      ],
+      "expected_wer": 0.0,
+      "expected_cer": 0.0
+    },
+    {
+      "name": "corpus_pools_errors_across_segments",
+      "references": [
+        "আমি ভাত খাই",
+        "সে ঘরে থাকে"
+      ],
+      "hypotheses": [
+        "আমি ডাল খাই",
+        "সে ঘরে থাকে"
+      ],
+      "expected_wer": 0.16666666666666666,
+      "expected_cer": 0.09090909090909091
+    },
+    {
+      "name": "pooled_not_averaged_unequal_segments",
+      "_note": "6-word segment with 1 error + 2-word segment with 1 error: pooled 2/8 = 0.25; macro-average would be (1/6+1/2)/2 = 1/3.",
+      "references": [
+        "আমি আজ সকালে ভাত খাই না",
+        "সে থাকে"
+      ],
+      "hypotheses": [
+        "আমি আজ সকালে ডাল খাই না",
+        "সে যায়"
+      ],
+      "expected_wer": 0.25,
+      "expected_cer": null
+    }
+  ]
+}

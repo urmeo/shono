@@ -1,0 +1,6 @@
+{"manifest": {"name": "tiny-longform-test", "source": "bengali_loop", "split": "test", "domain": "long-form", "version": "fixture-1", "language": "bn", "checksum": "sha256:demo"}}
+{"id": "loop01-000", "audio": "rec-loop-01.wav", "text": "আজকে আমরা কথা বলব বাংলা ভাষা নিয়ে", "duration_s": 4.2, "recording_id": "rec-loop-01", "start_s": 0.0, "speaker": "S1"}
+{"id": "loop01-001", "audio": "rec-loop-01.wav", "text": "ভাষা হল যোগাযোগের প্রধান মাধ্যম", "duration_s": 3.6, "recording_id": "rec-loop-01", "start_s": 4.2, "speaker": "S1"}
+{"id": "loop01-002", "audio": "rec-loop-01.wav", "text": "চলুন শুরু করা যাক", "duration_s": 2.1, "recording_id": "rec-loop-01", "start_s": 7.8, "speaker": "S2"}
+{"id": "loop02-000", "audio": "rec-loop-02.wav", "text": "দ্বিতীয় রেকর্ডিং এ স্বাগতম", "duration_s": 3.0, "recording_id": "rec-loop-02", "start_s": 0.0, "speaker": "S1"}
+{"id": "loop02-001", "audio": "rec-loop-02.wav", "text": "আমরা দুইশো ছাব্বিশ সালে আছি", "duration_s": 3.9, "recording_id": "rec-loop-02", "start_s": 3.0, "speaker": "S1"}

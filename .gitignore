@@ -1,0 +1,29 @@
+# Ship .gitignore
+.DS_Store
+Thumbs.db
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+*.egg-info/
+
+# Audio, models, and bulk data never enter git — manifests only
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.ogg
+*.opus
+*.pt
+*.bin
+*.safetensors
+*.ckpt
+data/raw/
+data/audio/
+checkpoints/

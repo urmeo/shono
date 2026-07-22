@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# The one command that proves the harness works. Every reported number
+# in this repo is only as trustworthy as this exit code.
+set -euo pipefail
+cd "$(dirname "$0")"
+uv sync --quiet
+uv run ruff check src tests
+uv run pytest -q

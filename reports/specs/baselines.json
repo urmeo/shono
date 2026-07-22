@@ -1,0 +1,37 @@
+{
+  "name": "baselines",
+  "title": "Shono baselines — the numbers every fine-tune must beat",
+  "seed": 0,
+  "n_resamples": 1000,
+  "slices": [
+    {"name": "cv-bn-test", "manifest": "data/cv-bn-test.manifest.jsonl", "domain": "read"},
+    {"name": "fleurs-bn-test", "manifest": "data/fleurs-bn-test.manifest.jsonl", "domain": "read"},
+    {"name": "bengali-loop-sample", "manifest": "data/bengali-loop-sample.manifest.jsonl", "domain": "long-form"}
+  ],
+  "systems": [
+    {
+      "name": "whisper-large-v3 (zero-shot)",
+      "predictions": {
+        "cv-bn-test": "reports/predictions/large-v3__cv-bn-test.jsonl",
+        "fleurs-bn-test": "reports/predictions/large-v3__fleurs-bn-test.jsonl",
+        "bengali-loop-sample": "reports/predictions/large-v3__bengali-loop-sample.jsonl"
+      }
+    },
+    {
+      "name": "whisper-large-v3-turbo (zero-shot)",
+      "predictions": {
+        "cv-bn-test": "reports/predictions/large-v3-turbo__cv-bn-test.jsonl",
+        "fleurs-bn-test": "reports/predictions/large-v3-turbo__fleurs-bn-test.jsonl",
+        "bengali-loop-sample": "reports/predictions/large-v3-turbo__bengali-loop-sample.jsonl"
+      }
+    },
+    {
+      "name": "tugstugi whisper-medium (zero-shot)",
+      "predictions": {
+        "cv-bn-test": "reports/predictions/tugstugi-medium__cv-bn-test.jsonl",
+        "fleurs-bn-test": "reports/predictions/tugstugi-medium__fleurs-bn-test.jsonl",
+        "bengali-loop-sample": "reports/predictions/tugstugi-medium__bengali-loop-sample.jsonl"
+      }
+    }
+  ]
+}

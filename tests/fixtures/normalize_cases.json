@@ -1,0 +1,60 @@
+{
+  "_comment": "Hand-built normalization cases. 'expected' is the exact output of the frozen pipeline; every case name says which pipeline step it pins down. Codepoint-level cases (NFC composition, zero-width removal) live in test_normalize.py as visible \\u escapes.",
+  "cases": [
+    {
+      "name": "matra_preserved_punct_stripped",
+      "input": "কি?",
+      "expected": "কি"
+    },
+    {
+      "name": "danda_stripped",
+      "input": "খাই।",
+      "expected": "খাই"
+    },
+    {
+      "name": "whitespace_collapsed",
+      "input": "আমি   ভাত\tখাই",
+      "expected": "আমি ভাত খাই"
+    },
+    {
+      "name": "bengali_digits_to_ascii",
+      "input": "২০২৬ সালে",
+      "expected": "2026 সালে"
+    },
+    {
+      "name": "english_token_kept",
+      "input": "আমি bank এ যাব",
+      "expected": "আমি bank এ যাব"
+    },
+    {
+      "name": "bnorm_repairs_broken_vowel",
+      "input": "অামি।",
+      "expected": "আমি"
+    },
+    {
+      "name": "taka_attached_and_spaced_agree",
+      "input": "৳১০০",
+      "expected": "100"
+    },
+    {
+      "name": "taka_spaced",
+      "input": "৳ ১০০",
+      "expected": "100"
+    },
+    {
+      "name": "punct_splits_tokens",
+      "input": "ভাত,ডাল",
+      "expected": "ভাত ডাল"
+    },
+    {
+      "name": "math_symbol_splits",
+      "input": "২+২",
+      "expected": "2 2"
+    },
+    {
+      "name": "latin_case_preserved",
+      "input": "আমি Bank এ যাব",
+      "expected": "আমি Bank এ যাব"
+    }
+  ]
+}

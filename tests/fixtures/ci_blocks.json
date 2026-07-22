@@ -1,0 +1,11 @@
+{
+  "_comment": "Two recordings: block A is perfect (6 ref words, 0 errors), block B has 2 errors in 6 words. Corpus point WER = 2/12. Block resampling can only produce corpus WERs in {0, 1/6, 1/3}.",
+  "records": [
+    ["A", "আমি ভাত খাই", "আমি ভাত খাই"],
+    ["A", "সে ঘরে থাকে", "সে ঘরে থাকে"],
+    ["B", "আমি ভাত খাই", "আমি ডাল খাই"],
+    ["B", "তুমি ভাল আছ", "তুমি ভাল নাই"]
+  ],
+  "expected_point_wer": 0.16666666666666666,
+  "max_possible_wer": 0.3333333333333333
+}
