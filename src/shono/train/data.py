@@ -43,8 +43,9 @@ def build_examples(
     Segments outside ``[min_chunk_length_s, chunk_length_s]`` are dropped (too
     short to be useful, too long for the model's receptive field). A deterministic
     ``timestamp_sample_fraction`` of the survivors is marked to train timestamped
-    targets. Raises if any manifest is a ``test`` split — training on test data is
-    leakage, and this is the last line of defense against it.
+    targets. Raises if any manifest is a ``test`` split — one specific guard against
+    the most obvious leakage; the license floor (``Manifest.validate_against``, which
+    also blocks eval-only sources) and the leakage audit cover the rest.
     """
     for m in manifests:
         if m.split == "test":

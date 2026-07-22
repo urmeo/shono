@@ -2,7 +2,7 @@
 
 Kaggle sessions are capped (~12 h) and can be pre-empted, so every training run
 must be resumable: on restart it finds the latest *complete* checkpoint and
-continues from it. This is decision D-0001's non-negotiable, and it is pure
+continues from it. Resume is a hard requirement, not a nicety, and it is pure
 filesystem logic — no torch — so it is fully unit-tested here rather than
 discovered to be broken three hours into a real run.
 

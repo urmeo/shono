@@ -2,7 +2,7 @@
 """Generate MODEL_CARD.md from an evaluation report — numbers come from the report.
 
     python scripts/build_model_card.py --system "shono whisper-medium (fine-tuned)" \
-        --model-id urme/shono-whisper-medium-bn --base-model <base> --repo-url <url>
+        --model-id urmeo/shono-whisper-medium-bn --base-model <base> --repo-url <url>
 
 Anything not yet measured renders as `—`; the card cannot state a number the frozen
 harness did not produce.

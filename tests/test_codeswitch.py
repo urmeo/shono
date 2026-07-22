@@ -54,6 +54,12 @@ def test_script_counts():
     assert counts["digit"] == 4
 
 
+def test_bengali_digits_count_as_digits_not_letters():
+    counts = script_counts("২০২৬")  # Bengali digits
+    assert counts["digit"] == 4
+    assert counts["bengali"] == 0
+
+
 def test_bengali_fraction():
     assert bengali_fraction("শুধু বাংলা") == 1.0
     assert bengali_fraction("only english") == 0.0

@@ -12,33 +12,12 @@ lazily; this config module is pure Python and fully testable without a GPU.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 
 # Optimizers we support; 8-bit AdamW (bitsandbytes) is the default — it halves
 # optimizer-state memory, which is what lets full fine-tuning fit a 16 GB T4.
 _OPTIMIZERS = frozenset({"adamw_bnb_8bit", "adamw_torch", "adafactor"})
 _SCHEDULERS = frozenset({"cosine", "linear", "constant_with_warmup"})
-
-
-@dataclass(frozen=True)
-class AugmentationConfig:
-    """SpecAugment-style masking applied to log-mel features during training.
-
-    Light augmentation regularizes the fine-tune without distorting Bengali
-    phonetics. Applied in the (torch-dependent) dataset; the policy lives here as
-    reviewable config.
-    """
-
-    spec_augment: bool = True
-    freq_mask_param: int = 27
-    n_freq_masks: int = 2
-    time_mask_param: int = 100
-    n_time_masks: int = 2
-
-    def __post_init__(self) -> None:
-        for name in ("freq_mask_param", "n_freq_masks", "time_mask_param", "n_time_masks"):
-            if getattr(self, name) < 0:
-                raise ValueError(f"AugmentationConfig.{name} must be >= 0")
 
 
 @dataclass(frozen=True)
@@ -88,7 +67,6 @@ class TrainConfig:
     resume: bool = True
 
     seed: int = 42
-    augmentation: AugmentationConfig = field(default_factory=AugmentationConfig)
 
     def __post_init__(self) -> None:
         if not self.model_id:
@@ -107,10 +85,12 @@ class TrainConfig:
             raise ValueError("batch size and gradient_accumulation_steps must be >= 1")
         if self.num_train_epochs <= 0 and self.max_steps <= 0:
             raise ValueError("set num_train_epochs > 0 or max_steps > 0")
-        if not 0.0 < self.min_chunk_length_s < self.chunk_length_s:
+        # Upper bound 30 s: Whisper's receptive field, and past it the segment-level
+        # timestamp token (<|30.00|>) would collide into non-timestamp vocabulary.
+        if not 0.0 < self.min_chunk_length_s < self.chunk_length_s <= 30.0:
             raise ValueError(
                 f"need 0 < min_chunk_length_s ({self.min_chunk_length_s}) "
-                f"< chunk_length_s ({self.chunk_length_s})"
+                f"< chunk_length_s ({self.chunk_length_s}) <= 30.0"
             )
         if not 0.0 <= self.timestamp_sample_fraction <= 1.0:
             raise ValueError("timestamp_sample_fraction must be in [0, 1]")

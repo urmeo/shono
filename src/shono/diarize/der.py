@@ -202,8 +202,16 @@ def der(
         confusion += d * (min(n_ref, n_sys) - n_correct)
 
     total_error = missed + false_alarm + confusion
+    if total_ref > 0:
+        der_value = total_error / total_ref
+    elif total_error > 0:
+        # Error with no scorable reference (all of it collar-excluded) is undefined —
+        # never report it as a perfect 0.0, which would hide the error.
+        der_value = float("nan")
+    else:
+        der_value = 0.0
     return DERResult(
-        der=total_error / total_ref if total_ref > 0 else 0.0,
+        der=der_value,
         missed_s=missed,
         false_alarm_s=false_alarm,
         confusion_s=confusion,

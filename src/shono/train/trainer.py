@@ -11,8 +11,8 @@ Two deliberate choices:
     * evaluation during training scores with the **frozen** ``shono.eval``
       normalizer + WER — never Whisper's built-in normalizer, which inflates
       Bengali accuracy by stripping vowel signs.
-    * the run is resumable (D-0001): it consults :mod:`shono.train.checkpoint`
-      and hands ``resume_from_checkpoint`` to the trainer.
+    * the run is resumable: it consults :mod:`shono.train.checkpoint` and hands
+      ``resume_from_checkpoint`` to the trainer, so a killed session loses nothing.
 """
 
 from __future__ import annotations

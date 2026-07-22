@@ -76,8 +76,11 @@ class WhisperFineTuneDataset:
         tokenizer = self.processor.tokenizer
         if not example.use_timestamps:
             return tokenizer(example.text).input_ids
-        # Segment-level timestamps: prefix tokens + <|0.00|> text <|end|> + eos.
-        prefix = list(tokenizer.prefix_tokens)
+        # Segment-level timestamps: <|sot|><|bn|><|transcribe|> <|0.00|> text <|end|> <|eot|>.
+        # The default prefix ends with <|notimestamps|>, which contradicts a timestamped
+        # target — drop it, or the model is trained on "no timestamps" then timestamps.
+        no_ts = tokenizer.convert_tokens_to_ids("<|notimestamps|>")
+        prefix = [t for t in tokenizer.prefix_tokens if t != no_ts]
         text_ids = tokenizer(example.text, add_special_tokens=False).input_ids
         end = min(example.duration_s, self.config.chunk_length_s)
         start_tok = _timestamp_token_id(tokenizer, 0.0)

@@ -94,6 +94,17 @@ def test_empty_reference_rejected():
         der([], [_s(0, 1, "A")])
 
 
+def test_der_is_nan_when_reference_fully_collar_excluded():
+    import math
+
+    # A 0.2 s reference vanishes inside the 0.25 s collar, but the hypothesis has a
+    # 3 s false alarm outside it — DER is undefined, must be NaN, never a hiding 0.0.
+    result = der([_s(5.0, 5.2, "A")], [_s(0.0, 3.0, "B")], DERConfig(collar_s=0.25))
+    assert math.isnan(result.der)
+    assert result.false_alarm_s == pytest.approx(3.0)
+    assert result.total_ref_s == 0.0
+
+
 # ---- corpus DER + CI -----------------------------------------------------
 
 

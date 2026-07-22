@@ -72,7 +72,7 @@ def plan_chunks(
         if cur_start is None:
             cur_start, cur_end = seg.start_s, seg.end_s
         elif seg.end_s - cur_start <= max_chunk_s:
-            cur_end = seg.end_s
+            cur_end = max(cur_end, seg.end_s)  # never shrink on a nested segment
         else:
             chunks.append(Chunk(cur_start, cur_end))
             cur_start, cur_end = seg.start_s, seg.end_s

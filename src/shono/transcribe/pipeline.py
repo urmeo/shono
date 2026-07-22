@@ -84,7 +84,12 @@ class LongFormTranscriber:
         *,
         now: Callable[[], float] = perf_counter,
     ) -> TranscriptionResult:
-        """Transcribe ``audio_path`` end to end, measuring the real-time factor."""
+        """Transcribe ``audio_path`` end to end, measuring the real-time factor.
+
+        The measured RTF includes the one-time model load (the lazy VAD/model are
+        constructed on first use inside the timed span), so it is conservative — a
+        steady-state RTF is lower. State this when reporting an RTF near 1.0.
+        """
         started = now()
         speech = self.vad.detect(audio_path)
         chunks = plan_chunks(speech, max_chunk_s=self.max_chunk_s, pad_s=self.pad_s)
@@ -171,10 +176,15 @@ class FasterWhisperTranscriber:
         def _mean(xs, default):
             return sum(xs) / len(xs) if xs else default
 
+        text = " ".join(t.strip() for t in texts).strip()
+        # Guarantee word timings when there is text, so the merger always uses its
+        # precise dedup path rather than the coarse wordless fallback.
+        if text and not words:
+            words.append(Word(0.0, max(0.0, end_s - start_s), text))
         return ChunkTranscription(
             window_start_s=start_s,
             window_end_s=end_s,
-            text=" ".join(t.strip() for t in texts).strip(),
+            text=text,
             avg_logprob=_mean(logprobs, 0.0),
             compression_ratio=_mean(comps, 1.0),
             no_speech_prob=_mean(nosp, 0.0),

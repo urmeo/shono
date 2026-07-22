@@ -13,13 +13,12 @@ from shono.train.checkpoint import (
     is_complete_checkpoint,
     list_checkpoints,
 )
-from shono.train.config import AugmentationConfig, TrainConfig
+from shono.train.config import TrainConfig
 from shono.train.data import TrainExample, build_examples, total_hours
 from shono.train.experiment import render_experiment
 from shono.train.trainer import run_training, smoke_step, to_training_arguments
 
 __all__ = [
-    "AugmentationConfig",
     "ResumeDecision",
     "TrainConfig",
     "TrainExample",

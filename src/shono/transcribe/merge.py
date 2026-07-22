@@ -42,13 +42,17 @@ def merge_transcriptions(chunks: list[ChunkTranscription]) -> Transcript:
             segments.append(TranscriptSegment(fresh[0].start_s, fresh[-1].end_s, text))
             covered_until = max(covered_until, fresh[-1].end_s)
         else:
-            if chunk.window_end_s <= covered_until + _EPS:
-                continue  # fully covered by an earlier chunk
-            text = chunk.text.strip()
-            if not text:
+            # No word timings: dedup by window start, consistent with the word path.
+            # A chunk that begins inside already-covered time is dropped rather than
+            # re-emitted — its text cannot be trimmed without word timings, and
+            # dropping is honest where duplicating would fabricate a repeat. The
+            # transcriber supplies word timings in practice, so this is a fallback.
+            if chunk.window_start_s < covered_until - _EPS:
                 covered_until = max(covered_until, chunk.window_end_s)
                 continue
-            segments.append(TranscriptSegment(chunk.window_start_s, chunk.window_end_s, text))
+            text = chunk.text.strip()
             covered_until = max(covered_until, chunk.window_end_s)
+            if text:
+                segments.append(TranscriptSegment(chunk.window_start_s, chunk.window_end_s, text))
 
     return Transcript(segments=tuple(segments))

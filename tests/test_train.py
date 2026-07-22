@@ -19,7 +19,6 @@ from shono.train import (
     render_experiment,
     total_hours,
 )
-from shono.train.config import AugmentationConfig
 
 
 def _config(**over) -> TrainConfig:
@@ -63,9 +62,10 @@ def test_config_rejects_out_of_range_timestamp_fraction():
         _config(timestamp_sample_fraction=1.5)
 
 
-def test_augmentation_rejects_negative_params():
-    with pytest.raises(ValueError, match="freq_mask_param"):
-        AugmentationConfig(freq_mask_param=-1)
+def test_config_rejects_chunk_over_30s():
+    # Past 30 s, the segment-level timestamp token would collide into normal vocab.
+    with pytest.raises(ValueError, match="chunk_length_s"):
+        _config(chunk_length_s=45.0)
 
 
 # ---- checkpoint / resume -------------------------------------------------
@@ -192,3 +192,25 @@ def test_smoke_step_runs_one_step_on_cpu(tmp_path):
     assert result["loss"] == result["loss"]  # a real float (not NaN)
     assert result["reloaded_params"] > 0
     assert (tmp_path / "checkpoint-1").is_dir()
+
+
+def test_timestamped_label_omits_notimestamps_token():
+    # A timestamped target must NOT contain <|notimestamps|> — otherwise the model
+    # is trained on "no timestamps" immediately followed by timestamp tokens.
+    transformers = pytest.importorskip("transformers")
+    from shono.train.audio import WhisperFineTuneDataset
+    from shono.train.data import TrainExample
+
+    processor = transformers.WhisperProcessor.from_pretrained(
+        "openai/whisper-tiny", language="bn", task="transcribe"
+    )
+    example = TrainExample(
+        audio="a.wav", text="আমি ভালো", duration_s=3.0, recording_id="r",
+        source="s", use_timestamps=True,
+    )
+    ds = WhisperFineTuneDataset([example], processor, _config())
+    labels = ds._labels_for(example)
+    no_ts = processor.tokenizer.convert_tokens_to_ids("<|notimestamps|>")
+    zero_ts = processor.tokenizer.convert_tokens_to_ids("<|0.00|>")
+    assert no_ts not in labels  # the bug this pins: notimestamps must be gone
+    assert zero_ts in labels  # a real segment-start timestamp token is present

@@ -35,12 +35,12 @@ def code_switch_normalize(text: str) -> str:
 
 
 def _script_of(char: str) -> str:
+    if char.isdigit():  # before the Bengali block, so Bengali digits ০-৯ count as digits
+        return "digit"
     if ord(char) in _BENGALI_BLOCK:
         return "bengali"
     if char.isascii() and char.isalpha():
         return "latin"
-    if char.isdigit():
-        return "digit"
     return "other"
 
 

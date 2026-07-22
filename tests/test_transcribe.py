@@ -56,6 +56,13 @@ def test_empty_input_yields_no_chunks():
     assert plan_chunks([], max_chunk_s=28.0) == []
 
 
+def test_nested_segment_does_not_shrink_coverage():
+    # A segment nested inside the current window must not pull the window end back
+    # (that would silently drop the audio past it).
+    chunks = plan_chunks([SpeechSegment(0, 20), SpeechSegment(5, 10)], max_chunk_s=25.0)
+    assert [(c.start_s, c.end_s) for c in chunks] == [(0, 20)]  # 10–20 s not lost
+
+
 # ---- hallucination filter ------------------------------------------------
 
 
@@ -125,6 +132,16 @@ def test_merge_skips_wordless_chunk_fully_covered():
     a = ChunkTranscription(0.0, 10.0, "সব")
     covered = ChunkTranscription(2.0, 8.0, "নকল")  # window inside a → skipped
     assert merge_transcriptions([a, covered]).text == "সব"
+
+
+def test_merge_wordless_overlap_is_dropped_not_duplicated():
+    # A wordless chunk starting inside covered time is dropped, never re-emitted —
+    # dropping is honest where duplicating would fabricate a repeat.
+    a = ChunkTranscription(0.0, 10.0, "শেষ", words=(Word(8.0, 9.0, "শেষ"),))
+    b = ChunkTranscription(8.0, 18.0, "শেষ নতুন")  # no word timings, overlaps a
+    text = merge_transcriptions([a, b]).text
+    assert "শেষ শেষ" not in text
+    assert text == "শেষ"
 
 
 # ---- real-time factor ----------------------------------------------------

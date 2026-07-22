@@ -80,9 +80,9 @@ def _report():
 
 def test_model_card_quotes_scored_numbers_and_dashes_pending():
     card = render_model_card(
-        _report(), model_id="urme/shono-medium-bn", system="ours",
+        _report(), model_id="urmeo/shono-medium-bn", system="ours",
         base_model="base/whisper-medium", license_spdx="MIT",
-        repo_url="https://github.com/urme/shono", limitations=["bn-BD register only"],
+        repo_url="https://github.com/urmeo/shono", limitations=["bn-BD register only"],
     )
     assert "20.0% [15.0%, 25.0%]" in card  # the scored slice
     assert "| bengali-loop-test | — |" in card  # the pending slice, honest dash
