@@ -11,6 +11,7 @@ scores additionally run both sides — always both, never one — through the
 frozen pipeline in :mod:`shono.eval.normalize`.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import jiwer
@@ -76,16 +77,28 @@ class ScoreReport:
     n_segments: int
 
 
-def score(references: list[str], hypotheses: list[str]) -> ScoreReport:
-    """Score a corpus raw and under the frozen normalization pipeline."""
+def score(
+    references: list[str],
+    hypotheses: list[str],
+    *,
+    normalizer: Callable[[str], str] = normalize,
+    normalizer_version: str = NORMALIZER_VERSION,
+) -> ScoreReport:
+    """Score a corpus raw and under a normalization pipeline (the frozen one by default).
+
+    ``normalizer`` defaults to the frozen pipeline; the code-switch slice passes its
+    documented variant (:func:`shono.eval.codeswitch.code_switch_normalize`) with the
+    matching version, so the stamped ``normalizer_version`` always names the pipeline
+    that produced the normalized numbers.
+    """
     _validate(references, hypotheses)
-    norm_refs = [normalize(r) for r in references]
-    norm_hyps = [normalize(h) for h in hypotheses]
+    norm_refs = [normalizer(r) for r in references]
+    norm_hyps = [normalizer(h) for h in hypotheses]
     return ScoreReport(
         wer_raw=wer(references, hypotheses),
         cer_raw=cer(references, hypotheses),
         wer_normalized=wer(norm_refs, norm_hyps),
         cer_normalized=cer(norm_refs, norm_hyps),
-        normalizer_version=NORMALIZER_VERSION,
+        normalizer_version=normalizer_version,
         n_segments=len(references),
     )

@@ -19,17 +19,28 @@ Two rules keep it honest, and they are the reason this module exists:
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 from shono.data.license import LicenseRegistry
 from shono.data.manifest import Manifest
 from shono.eval.ci import BootstrapCI, blockwise_bootstrap_ci
-from shono.eval.normalize import normalize
+from shono.eval.codeswitch import CS_NORMALIZER_VERSION, code_switch_normalize
+from shono.eval.normalize import NORMALIZER_VERSION, normalize
 from shono.eval.score import ScoreReport, score
 from shono.provenance import RunContext
 
 _DEFAULT_RESAMPLES = 1000
+
+# The code-switch slice is scored under the documented script-normalized policy.
+_CODE_SWITCH_DOMAIN = "code-switch"
+
+
+def _normalizer_for(domain: str) -> tuple[Callable[[str], str], str]:
+    if domain == _CODE_SWITCH_DOMAIN:
+        return code_switch_normalize, CS_NORMALIZER_VERSION
+    return normalize, NORMALIZER_VERSION
 
 
 # ---- predictions ---------------------------------------------------------
@@ -129,9 +140,10 @@ def score_slice(
     raw_records = manifest.records_with(predictions.hypotheses)
     refs = [r for _, r, _ in raw_records]
     hyps = [h for _, _, h in raw_records]
-    report = score(refs, hyps)
+    normalizer, normalizer_version = _normalizer_for(manifest.domain)
+    report = score(refs, hyps, normalizer=normalizer, normalizer_version=normalizer_version)
 
-    norm_records = [(rid, normalize(r), normalize(h)) for rid, r, h in raw_records]
+    norm_records = [(rid, normalizer(r), normalizer(h)) for rid, r, h in raw_records]
     single_block = len(manifest.recording_ids()) < 2
     wer_ci = None if single_block else blockwise_bootstrap_ci(
         norm_records, "wer", n_resamples=n_resamples, seed=seed
@@ -277,6 +289,18 @@ class Report:
             ]
             lines += [self._row(sys, slice_name) for sys in self.system_order]
             lines.append("")
+        if any(c.domain == _CODE_SWITCH_DOMAIN for c in self.cells):
+            lines += [
+                "## Code-switch scoring",
+                "",
+                f"Code-switch slices are scored under the script-normalized policy "
+                f"(v{CS_NORMALIZER_VERSION}): the frozen normalizer plus case-insensitive "
+                "Latin. Cross-script transliteration equivalence (a Latin word vs its "
+                "Bengali spelling) is deliberately **not** credited — no reliable Bn-En "
+                "transliteration lexicon exists, and asserting equivalence would fabricate "
+                "matches.",
+                "",
+            ]
         if self.leakage_notes:
             lines += ["## Leakage audit", ""]
             lines += [f"- {n}" for n in self.leakage_notes]

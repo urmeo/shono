@@ -1,0 +1,5 @@
+{"manifest": {"name": "mucs-cs-test", "source": "mucs_slr104", "split": "test", "domain": "code-switch", "version": "SLR104", "language": "bn"}}
+{"id": "mucs-cs-000", "audio": "mucs/test/lec01_000.wav", "text": "আজকের lecture এ আমরা machine learning নিয়ে আলোচনা করব", "duration_s": 5.4, "recording_id": "mucs-lec01"}
+{"id": "mucs-cs-001", "audio": "mucs/test/lec01_001.wav", "text": "এই algorithm টা supervised learning এর একটা উদাহরণ", "duration_s": 4.8, "recording_id": "mucs-lec01"}
+{"id": "mucs-cs-002", "audio": "mucs/test/lec02_000.wav", "text": "database এ query চালানোর আগে index তৈরি করা ভালো", "duration_s": 4.1, "recording_id": "mucs-lec02"}
+{"id": "mucs-cs-003", "audio": "mucs/test/lec02_001.wav", "text": "network এর latency কমাতে হলে cache ব্যবহার করতে হবে", "duration_s": 4.6, "recording_id": "mucs-lec02"}

@@ -1,0 +1,33 @@
+{
+  "name": "codeswitch",
+  "title": "Shono code-switch — the first per-slice Bn-En comparison",
+  "seed": 0,
+  "n_resamples": 1000,
+  "slices": [
+    {"name": "mucs-cs-test", "manifest": "data/mucs-cs-test.manifest.jsonl", "domain": "code-switch"},
+    {"name": "cs-mini-eval", "manifest": "data/cs-mini-eval.manifest.jsonl", "domain": "code-switch"}
+  ],
+  "systems": [
+    {
+      "name": "shono whisper-medium (fine-tuned)",
+      "predictions": {
+        "mucs-cs-test": "reports/predictions/shono-medium__mucs-cs-test.jsonl",
+        "cs-mini-eval": "reports/predictions/shono-medium__cs-mini-eval.jsonl"
+      }
+    },
+    {
+      "name": "tugstugi whisper-medium (base)",
+      "predictions": {
+        "mucs-cs-test": "reports/predictions/tugstugi-medium__mucs-cs-test.jsonl",
+        "cs-mini-eval": "reports/predictions/tugstugi-medium__cs-mini-eval.jsonl"
+      }
+    },
+    {
+      "name": "whisper-large-v3 (zero-shot)",
+      "predictions": {
+        "mucs-cs-test": "reports/predictions/large-v3__mucs-cs-test.jsonl",
+        "cs-mini-eval": "reports/predictions/large-v3__cs-mini-eval.jsonl"
+      }
+    }
+  ]
+}
