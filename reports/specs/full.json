@@ -1,0 +1,45 @@
+{
+  "name": "full",
+  "title": "Shono full benchmark — ours vs base vs commercial APIs, per slice",
+  "seed": 0,
+  "n_resamples": 1000,
+  "slices": [
+    {"name": "cv-bn-test", "manifest": "data/cv-bn-test.manifest.jsonl", "domain": "read"},
+    {"name": "bengali-loop-test", "manifest": "data/bengali-loop-test.manifest.jsonl", "domain": "long-form"},
+    {"name": "mucs-cs-test", "manifest": "data/mucs-cs-test.manifest.jsonl", "domain": "code-switch"}
+  ],
+  "systems": [
+    {
+      "name": "shono whisper-medium (fine-tuned)",
+      "predictions": {
+        "cv-bn-test": "reports/predictions/shono-medium__cv-bn-test.jsonl",
+        "bengali-loop-test": "reports/predictions/shono-medium__bengali-loop-test.jsonl",
+        "mucs-cs-test": "reports/predictions/shono-medium__mucs-cs-test.jsonl"
+      }
+    },
+    {
+      "name": "tugstugi whisper-medium (base)",
+      "predictions": {
+        "cv-bn-test": "reports/predictions/tugstugi-medium__cv-bn-test.jsonl",
+        "bengali-loop-test": "reports/predictions/tugstugi-medium__bengali-loop-test.jsonl",
+        "mucs-cs-test": "reports/predictions/tugstugi-medium__mucs-cs-test.jsonl"
+      }
+    },
+    {
+      "name": "Google Chirp (bn-BD)",
+      "predictions": {
+        "cv-bn-test": "reports/predictions/google-chirp__cv-bn-test.jsonl",
+        "bengali-loop-test": "reports/predictions/google-chirp__bengali-loop-test.jsonl",
+        "mucs-cs-test": "reports/predictions/google-chirp__mucs-cs-test.jsonl"
+      }
+    },
+    {
+      "name": "Deepgram Nova-3 (bn)",
+      "predictions": {
+        "cv-bn-test": "reports/predictions/deepgram-nova3__cv-bn-test.jsonl",
+        "bengali-loop-test": "reports/predictions/deepgram-nova3__bengali-loop-test.jsonl",
+        "mucs-cs-test": "reports/predictions/deepgram-nova3__mucs-cs-test.jsonl"
+      }
+    }
+  ]
+}
