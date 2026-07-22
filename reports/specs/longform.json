@@ -1,0 +1,33 @@
+{
+  "name": "longform",
+  "title": "Shono long-form — lecture/podcast transcription vs the baselines",
+  "seed": 0,
+  "n_resamples": 1000,
+  "slices": [
+    {"name": "bengali-loop-test", "manifest": "data/bengali-loop-test.manifest.jsonl", "domain": "long-form"},
+    {"name": "lecture-podcast-eval", "manifest": "data/lecture-podcast-eval.manifest.jsonl", "domain": "long-form"}
+  ],
+  "systems": [
+    {
+      "name": "shono whisper-medium (fine-tuned)",
+      "predictions": {
+        "bengali-loop-test": "reports/predictions/shono-medium__bengali-loop-test.jsonl",
+        "lecture-podcast-eval": "reports/predictions/shono-medium__lecture-podcast-eval.jsonl"
+      }
+    },
+    {
+      "name": "tugstugi whisper-medium (base)",
+      "predictions": {
+        "bengali-loop-test": "reports/predictions/tugstugi-medium__bengali-loop-test.jsonl",
+        "lecture-podcast-eval": "reports/predictions/tugstugi-medium__lecture-podcast-eval.jsonl"
+      }
+    },
+    {
+      "name": "whisper-large-v3 (zero-shot)",
+      "predictions": {
+        "bengali-loop-test": "reports/predictions/large-v3__bengali-loop-test.jsonl",
+        "lecture-podcast-eval": "reports/predictions/large-v3__lecture-podcast-eval.jsonl"
+      }
+    }
+  ]
+}
