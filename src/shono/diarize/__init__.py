@@ -13,8 +13,10 @@ from shono.diarize.der import (
     corpus_der,
     der,
     der_bootstrap_ci,
+    render_der_report,
 )
 from shono.diarize.diarizer import Diarizer, PyannoteDiarizer, vad_intersection
+from shono.diarize.rttm import load_rttm
 from shono.diarize.types import SpeakerSegment
 
 __all__ = [
@@ -28,5 +30,7 @@ __all__ = [
     "corpus_der",
     "der",
     "der_bootstrap_ci",
+    "load_rttm",
+    "render_der_report",
     "vad_intersection",
 ]

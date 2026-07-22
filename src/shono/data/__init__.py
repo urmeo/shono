@@ -6,6 +6,7 @@ does: what a slice contains, where its audio lives, and under which license.
 
 from shono.data.build import (
     build_manifest,
+    collapse_to_recordings,
     duration_from_audio,
     from_common_voice_tsv,
     from_fleurs_tsv,
@@ -23,6 +24,7 @@ __all__ = [
     "Segment",
     "audit_leakage",
     "build_manifest",
+    "collapse_to_recordings",
     "duration_from_audio",
     "from_common_voice_tsv",
     "from_fleurs_tsv",

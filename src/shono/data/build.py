@@ -15,6 +15,7 @@ Bengali-Loop), map their rows in the data-prep notebook and hand them to
 from __future__ import annotations
 
 import csv
+from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 
@@ -78,6 +79,36 @@ def build_manifest(
     return Manifest(
         name=name, source=source, split=split, domain=domain, version=version,
         language=language, checksum=checksum, segments=tuple(segments),
+    )
+
+
+def collapse_to_recordings(manifest: Manifest) -> Manifest:
+    """Collapse a segment-level manifest to one entry per recording, for long-form eval.
+
+    A recording's segments are joined in start-time order into a single reference; the
+    entry's audio is the recording file and its duration the sum. Scoring the whole
+    recording (block = recording) against the long-form pipeline's merged transcript is
+    the honest long-form protocol — not per-segment, which the pipeline never produces.
+    """
+    groups: dict[str, list[Segment]] = defaultdict(list)
+    for seg in manifest.segments:
+        groups[seg.recording_id].append(seg)
+    segments = []
+    for rid in sorted(groups):
+        segs = sorted(groups[rid], key=lambda s: (s.start_s if s.start_s is not None else 0.0))
+        segments.append(
+            Segment(
+                id=rid,
+                audio=segs[0].audio,
+                text=" ".join(s.text for s in segs),
+                duration_s=sum(s.duration_s for s in segs),
+                recording_id=rid,
+            )
+        )
+    return Manifest(
+        name=manifest.name, source=manifest.source, split=manifest.split,
+        domain=manifest.domain, version=manifest.version, language=manifest.language,
+        checksum=manifest.checksum, segments=tuple(segments),
     )
 
 

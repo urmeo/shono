@@ -300,3 +300,42 @@ def der_bootstrap_ci(
         n_resamples=n_resamples,
         n_recordings=n,
     )
+
+
+def render_der_report(
+    rows: list[tuple[str, DERResult, DERInterval | None]],
+    config: DERConfig,
+    *,
+    title: str = "Diarization — DER",
+    generated: str = "",
+) -> str:
+    """Render a Markdown DER report: one row per system, components broken out.
+
+    ``rows`` are ``(system, corpus_der_result, ci_or_None)``. The collar/overlap
+    protocol is stated in the header — a DER without it is not a result.
+    """
+    overlap = "scored" if not config.skip_overlap else "excluded"
+    lines = [
+        f"# {title}",
+        "",
+        f"- **Protocol:** collar {config.collar_s:g} s per boundary side · overlap {overlap}",
+        f"- **Generated:** {generated or '—'}",
+        "",
+        "DER = (missed + false alarm + confusion) / reference speech; lower is better. "
+        "Components are shown as a fraction of reference speech.",
+        "",
+        "| System | DER (95% CI) | Missed | False alarm | Confusion |",
+        "|---|---|---|---|---|",
+    ]
+    for system, result, ci in rows:
+        ref = result.total_ref_s or 1.0
+        der_cell = (
+            f"{result.der:.1%} [{ci.lower:.1%}, {ci.upper:.1%}]"
+            if ci is not None
+            else f"{result.der:.1%}"
+        )
+        lines.append(
+            f"| {system} | {der_cell} | {result.missed_s / ref:.1%} "
+            f"| {result.false_alarm_s / ref:.1%} | {result.confusion_s / ref:.1%} |"
+        )
+    return "\n".join(lines) + "\n"

@@ -188,6 +188,19 @@ def test_pipeline_end_to_end_with_fakes():
     assert result.rtf < 1.0
 
 
+def test_long_form_pipeline_transcriber_returns_merged_text():
+    # Adapts the pipeline to the transcribe(path)->str protocol for recording-level eval.
+    from shono.transcribe import LongFormPipelineTranscriber
+
+    pipeline = LongFormTranscriber(
+        _FakeVAD([SpeechSegment(0, 20), SpeechSegment(100, 105)]), _FakeTranscriber(),
+        pad_s=0.0,
+    )
+    adapter = LongFormPipelineTranscriber(pipeline)
+    text = adapter.transcribe("rec.wav", duration_s=200.0)  # duration given → no audio read
+    assert text == "ভালো"  # hallucinated silence chunk excluded from the merged text
+
+
 def test_cli_missing_audio_exits_2_without_loading_torch():
     # The file check happens before any GPU import, so this runs torch-free.
     from shono.transcribe.__main__ import main

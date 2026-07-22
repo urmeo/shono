@@ -6,7 +6,10 @@ import pytest
 
 from shono.data import (
     LicenseRegistry,
+    Manifest,
+    Segment,
     build_manifest,
+    collapse_to_recordings,
     from_common_voice_tsv,
     from_fleurs_tsv,
 )
@@ -94,6 +97,24 @@ def test_from_common_voice_uses_durations_tsv(tmp_path):
 
 
 # ---- FLEURS --------------------------------------------------------------
+
+
+def test_collapse_to_recordings_joins_segments_per_recording():
+    segs = (
+        Segment(id="r1-1", audio="r1.wav", text="দ্বিতীয়", duration_s=2.0,
+                recording_id="r1", start_s=4.0),
+        Segment(id="r1-0", audio="r1.wav", text="প্রথম", duration_s=2.0,
+                recording_id="r1", start_s=0.0),
+        Segment(id="r2-0", audio="r2.wav", text="আলাদা", duration_s=3.0, recording_id="r2"),
+    )
+    m = Manifest(name="loop", source="bengali_loop", split="test", domain="long-form",
+                 version="v", segments=segs)
+    collapsed = collapse_to_recordings(m)
+    assert len(collapsed.segments) == 2  # one entry per recording
+    r1 = next(s for s in collapsed.segments if s.recording_id == "r1")
+    assert r1.text == "প্রথম দ্বিতীয়"  # joined in start-time order
+    assert r1.duration_s == 4.0  # summed
+    assert r1.id == "r1"
 
 
 def test_from_fleurs_tsv_derives_duration_from_num_samples(tmp_path):

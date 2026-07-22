@@ -9,6 +9,8 @@ from shono.diarize import (
     corpus_der,
     der,
     der_bootstrap_ci,
+    load_rttm,
+    render_der_report,
     vad_intersection,
 )
 from shono.transcribe.types import SpeechSegment, Transcript, TranscriptSegment
@@ -160,3 +162,30 @@ def test_attribute_leaves_none_when_no_overlap():
     transcript = Transcript(segments=(TranscriptSegment(0, 2, "কথা"),))
     out = attribute_speakers(transcript, [_s(5, 10, "A")])
     assert out.segments[0].speaker is None
+
+
+# ---- RTTM loading + DER report -------------------------------------------
+
+
+def test_load_rttm_parses_speaker_turns(tmp_path):
+    rttm = tmp_path / "ref.rttm"
+    rttm.write_text(
+        "SPEAKER rec1 1 0.00 5.00 <NA> <NA> A <NA> <NA>\n"
+        "SPEAKER rec1 1 5.00 3.00 <NA> <NA> B <NA> <NA>\n"
+        "SPEAKER rec2 1 0.00 2.00 <NA> <NA> X <NA> <NA>\n",  # different recording
+        encoding="utf-8",
+    )
+    turns = load_rttm(rttm, file_id="rec1")
+    assert [(s.start_s, s.end_s, s.speaker) for s in turns] == [(0.0, 5.0, "A"), (5.0, 8.0, "B")]
+
+
+def test_render_der_report_states_protocol_and_components():
+    result = corpus_der([([_s(0, 10, "A")], [_s(0, 5, "A")])], DERConfig(collar_s=0.0))
+    ci = der_bootstrap_ci(
+        [([_s(0, 10, "A")], [_s(0, 5, "A")]), ([_s(0, 10, "A")], [_s(0, 10, "A")])],
+        DERConfig(collar_s=0.0), n_resamples=100,
+    )
+    report = render_der_report([("shono", result, ci)], DERConfig(collar_s=0.25))
+    assert "collar 0.25" in report  # protocol stated
+    assert "| shono |" in report  # the system row
+    assert "Missed" in report  # components broken out

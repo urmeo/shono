@@ -17,6 +17,7 @@ from shono.transcribe.merge import merge_transcriptions
 from shono.transcribe.pipeline import (
     ChunkTranscriber,
     FasterWhisperTranscriber,
+    LongFormPipelineTranscriber,
     LongFormTranscriber,
     SileroVAD,
     TranscriptionResult,
@@ -40,6 +41,7 @@ __all__ = [
     "FasterWhisperTranscriber",
     "FilterResult",
     "HallucinationConfig",
+    "LongFormPipelineTranscriber",
     "LongFormTranscriber",
     "ShortFormWhisperTranscriber",
     "SileroVAD",

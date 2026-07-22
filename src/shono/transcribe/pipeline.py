@@ -108,6 +108,30 @@ class LongFormTranscriber:
         )
 
 
+class LongFormPipelineTranscriber:
+    """Adapt the long-form pipeline to the ``transcribe(path, …) -> str`` protocol.
+
+    Runs the full VAD → chunk → transcribe → de-hallucinate → merge pipeline on a
+    whole recording and returns the merged transcript text. This lets
+    ``shono.api.run_over_manifest`` produce recording-level long-form predictions
+    through the same one runner used for baselines and APIs. Score against a
+    recording-level manifest (see ``shono.data.collapse_to_recordings``).
+    """
+
+    def __init__(self, pipeline: LongFormTranscriber) -> None:
+        self.pipeline = pipeline
+
+    def transcribe(
+        self, audio_path: str, start_s: float | None = None, duration_s: float | None = None
+    ) -> str:
+        if duration_s is None:
+            import soundfile as sf
+
+            info = sf.info(audio_path)
+            duration_s = info.frames / info.samplerate
+        return self.pipeline.transcribe(audio_path, duration_s).transcript.text
+
+
 # --- Lazy GPU implementations (Kaggle / faster-whisper; imported only when used) ---
 
 

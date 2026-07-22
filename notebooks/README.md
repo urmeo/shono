@@ -16,6 +16,13 @@ checkpoints for session-limit resume.
   with 8-bit AdamW, resumable across the ~12 h Kaggle session cap. Drives
   `shono.train`: builds the license-checked training mix, runs a one-step CPU
   smoke, trains, and writes the experiment record.
+- **`predict.ipynb`** — runs the fine-tuned model through the rest of the stack:
+  CT2 conversion + long-form pipeline + RTF (M4), pyannote diarization + DER (M5),
+  the code-switch slice (M6), and the commercial APIs within a $0 budget guard
+  (M7) — filling the `longform`, `codeswitch`, and `full` reports plus a DER report.
+
+Run order: `prepare_data` → `baselines` (M2) → `train_whisper_medium` (M3) →
+`predict` (M4–M7).
 
 ## Training environment
 
