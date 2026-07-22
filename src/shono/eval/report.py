@@ -55,6 +55,18 @@ class Predictions:
     hypotheses: dict[str, str]
     run_context: dict | None = None
 
+    def to_jsonl(self, path: str | Path) -> None:
+        """Write predictions as header-line JSONL (the format the report reads)."""
+        header: dict = {"system": self.system, "manifest": self.manifest}
+        if self.run_context is not None:
+            header["run_context"] = self.run_context
+        lines = [json.dumps({"predictions": header}, ensure_ascii=False)]
+        lines += [
+            json.dumps({"id": sid, "hypothesis": hyp}, ensure_ascii=False)
+            for sid, hyp in self.hypotheses.items()
+        ]
+        Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
     @classmethod
     def from_jsonl(cls, path: str | Path) -> Predictions:
         raw = [ln for ln in Path(path).read_text(encoding="utf-8").splitlines() if ln.strip()]

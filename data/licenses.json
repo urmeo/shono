@@ -67,6 +67,22 @@
       "confidence": "H"
     },
     {
+      "id": "fleurs_bn",
+      "name": "FLEURS Bengali (Google)",
+      "url": "https://huggingface.co/datasets/google/fleurs",
+      "license": "CC-BY-4.0",
+      "redistributable_audio": true,
+      "attribution_required": true,
+      "share_alike": false,
+      "access": "Hugging Face datasets (google/fleurs, 'bn_in' config)",
+      "status": "eval-only",
+      "hours": 10.0,
+      "domain": "read",
+      "version": "fleurs",
+      "notes": "Read-speech eval benchmark; ~10 h/language. Eval-only — never in the training mix. Reference point: zero-shot large-v3 ~33.9% WER on Bengali FLEURS.",
+      "confidence": "H"
+    },
+    {
       "id": "youtube_eval",
       "name": "Shono private lecture/podcast eval set (YouTube-sourced)",
       "url": "",

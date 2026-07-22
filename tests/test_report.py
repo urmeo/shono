@@ -123,6 +123,17 @@ def test_predictions_require_header(tmp_path):
         Predictions.from_jsonl(bad)
 
 
+def test_predictions_round_trip(tmp_path):
+    preds = Predictions("sys-a", "cv-bn-test", {"s0": "কথা এক", "s1": "কথা দুই"},
+                        run_context={"seed": 0})
+    path = tmp_path / "p.jsonl"
+    preds.to_jsonl(path)
+    loaded = Predictions.from_jsonl(path)
+    assert loaded.system == "sys-a"
+    assert loaded.manifest == "cv-bn-test"
+    assert loaded.hypotheses == preds.hypotheses
+
+
 def test_duplicate_prediction_id_rejected(tmp_path):
     # A re-run that appends must not silently overwrite an earlier hypothesis —
     # symmetric with Manifest rejecting duplicate segment ids.

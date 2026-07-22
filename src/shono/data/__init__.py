@@ -4,6 +4,12 @@ Audio and checkpoints never enter git — this package models the *metadata* tha
 does: what a slice contains, where its audio lives, and under which license.
 """
 
+from shono.data.build import (
+    build_manifest,
+    duration_from_audio,
+    from_common_voice_tsv,
+    from_fleurs_tsv,
+)
 from shono.data.leakage import LeakageReport, Overlap, audit_leakage
 from shono.data.license import DatasetLicense, LicenseRegistry
 from shono.data.manifest import Manifest, Segment
@@ -16,4 +22,8 @@ __all__ = [
     "Overlap",
     "Segment",
     "audit_leakage",
+    "build_manifest",
+    "duration_from_audio",
+    "from_common_voice_tsv",
+    "from_fleurs_tsv",
 ]

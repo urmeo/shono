@@ -5,6 +5,13 @@ Kaggle training and benchmark notebooks. Each is a **thin driver** over the test
 the behavior is unit-tested. Every run records its seed + full config and
 checkpoints for session-limit resume.
 
+- **`prepare_data.ipynb`** — raw datasets → manifests. Builds the audio-free
+  train + eval manifests M2/M3 consume (Common Voice + FLEURS via the package
+  builders; OpenSLR/MUCS/Bengali-Loop via `build_manifest`), validates each
+  against the license floor, and runs the train/test leakage audit. **Run first.**
+- **`baselines.ipynb`** — the numbers every fine-tune must beat. Runs each
+  zero-shot Whisper baseline over every eval slice via `run_over_manifest`, writes
+  predictions, and regenerates the baseline report.
 - **`train_whisper_medium.ipynb`** — full fine-tune of Whisper-medium (Bengali)
   with 8-bit AdamW, resumable across the ~12 h Kaggle session cap. Drives
   `shono.train`: builds the license-checked training mix, runs a one-step CPU

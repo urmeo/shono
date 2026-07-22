@@ -193,3 +193,21 @@ def test_cli_missing_audio_exits_2_without_loading_torch():
     from shono.transcribe.__main__ import main
 
     assert main(["/no/such/file.wav", "--model", "/some/ct2"]) == 2
+
+
+def test_short_form_whisper_transcriber_wiring(tmp_path):
+    # Prove the baseline transcriber's load→features→generate→decode path works,
+    # end to end, with a real (tiny) Whisper — runs where torch/transformers exist.
+    pytest.importorskip("torch")
+    pytest.importorskip("transformers")
+    sf = pytest.importorskip("soundfile")
+    pytest.importorskip("librosa")
+    import numpy as np
+
+    from shono.transcribe import ShortFormWhisperTranscriber
+
+    wav = tmp_path / "clip.wav"
+    sf.write(wav, np.zeros(16000, dtype="float32"), 16000)  # 1 s of silence
+    transcriber = ShortFormWhisperTranscriber("openai/whisper-tiny", language="en")
+    text = transcriber.transcribe(str(wav))
+    assert isinstance(text, str)  # a real decode, not a crash

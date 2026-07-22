@@ -30,6 +30,7 @@ from shono.transcribe.types import (
     TranscriptSegment,
     Word,
 )
+from shono.transcribe.whisper import ShortFormWhisperTranscriber
 
 __all__ = [
     "Chunk",
@@ -40,6 +41,7 @@ __all__ = [
     "FilterResult",
     "HallucinationConfig",
     "LongFormTranscriber",
+    "ShortFormWhisperTranscriber",
     "SileroVAD",
     "SpeechSegment",
     "Transcript",
