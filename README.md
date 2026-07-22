@@ -7,7 +7,7 @@ Bengali speech recognition built for audio people actually record — not clean,
 - **Code-switching** — Bangla-English, the way people actually talk
 - **Honest evaluation** — WER *and* CER, per slice, with confidence intervals, against the base model and commercial APIs
 
-> **Status — foundation.** The full pipeline and evaluation harness are built and tested (163 tests, one `./verify`). **No model is fine-tuned yet, so no accuracy numbers are claimed.** When they appear, they ship with the exact scoring script, config, and confidence intervals that produced them — never a guess.
+> **Status — foundation.** The full pipeline and evaluation harness are built and tested (167 tests, one `./verify`). **No model is fine-tuned yet, so no accuracy numbers are claimed.** When they appear, they ship with the exact scoring script, config, and confidence intervals that produced them — never a guess.
 
 ## Pipeline
 
@@ -44,7 +44,7 @@ Requires [uv](https://docs.astral.sh/uv/); Python 3.11 resolves automatically.
 
 ```bash
 git clone https://github.com/urmeo/shono && cd shono
-./verify        # install + lint + full test suite (163 tests)
+./verify        # install + lint + full test suite (167 tests)
 ```
 
 ```python
