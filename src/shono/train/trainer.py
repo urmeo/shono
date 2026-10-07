@@ -1,29 +1,21 @@
-"""The torch/transformers training glue — imported lazily, run on the GPU.
-
-Everything here needs torch, transformers, and (for the optimizer) bitsandbytes,
-none of which are installed in the scoring environment; they live in the Kaggle
-training image. So every heavy import is *inside* a function: ``import
-shono.train.trainer`` succeeds on the local Mac, and only calling ``run_training``
-(or the smoke step) pulls torch in. That keeps ``./verify`` green while the same
-code drives the real run.
-
-Two deliberate choices:
-    * evaluation during training scores with the **frozen** ``shono.eval``
-      normalizer + WER — never Whisper's built-in normalizer, which inflates
-      Bengali accuracy by stripping vowel signs.
-    * the run is resumable: it consults :mod:`shono.train.checkpoint` and hands
-      ``resume_from_checkpoint`` to the trainer, so a killed session loses nothing.
-"""
+"""Training orchestration with manifest preflight and generated evaluation."""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import json
+from collections.abc import Mapping, Sequence
+from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from shono.data.audio_paths import DurationFn, resolved_path, validate_manifest_audio
+from shono.data.leakage import require_no_leakage
+from shono.data.license import LicenseRegistry
+from shono.data.manifest import Manifest
 from shono.train.checkpoint import decide_resume
 from shono.train.config import TrainConfig
-from shono.train.data import TrainExample
+from shono.train.data import build_examples
+from shono.train.output import validate_training_output
 
 if TYPE_CHECKING:  # pragma: no cover - typing only, never imported at runtime here
     pass
@@ -51,6 +43,7 @@ def to_training_arguments(config: TrainConfig, **overrides: Any):
         "optim": config.optim,
         "save_steps": config.save_steps,
         "eval_steps": config.eval_steps,
+        "eval_strategy": "steps",
         "logging_steps": config.logging_steps,
         "save_total_limit": config.save_total_limit,
         "predict_with_generate": True,
@@ -69,12 +62,20 @@ class DataCollatorSpeechSeq2Seq:
         self.decoder_start_token_id = decoder_start_token_id
 
     def __call__(self, features: list[dict]) -> dict:
-        input_features = [{"input_features": f["input_features"]} for f in features]
+        if not features or any(not f["labels"] for f in features):
+            raise ValueError("collator requires nonempty items and labels")
+        input_features = [
+            {"input_features": f["input_features"], "attention_mask": f["attention_mask"]}
+            for f in features
+        ]
         batch = self.processor.feature_extractor.pad(input_features, return_tensors="pt")
         label_features = [{"input_ids": f["labels"]} for f in features]
         labels_batch = self.processor.tokenizer.pad(label_features, return_tensors="pt")
         labels = labels_batch["input_ids"].masked_fill(labels_batch.attention_mask.ne(1), -100)
-        if (labels[:, 0] == self.decoder_start_token_id).all().cpu().item():
+        starts = labels[:, 0] == self.decoder_start_token_id
+        if starts.any().cpu().item() and not starts.all().cpu().item():
+            raise ValueError("batch mixes decoder-start conventions")
+        if starts.all().cpu().item():
             labels = labels[:, 1:]
         batch["labels"] = labels
         return batch
@@ -87,7 +88,9 @@ def build_compute_metrics(processor: Any):
     def compute_metrics(pred) -> dict:
         import numpy as np
 
-        pred_ids = pred.predictions
+        pred_ids = np.where(
+            pred.predictions == -100, processor.tokenizer.pad_token_id, pred.predictions
+        )
         label_ids = pred.label_ids
         label_ids = np.where(label_ids == -100, processor.tokenizer.pad_token_id, label_ids)
         pred_str = processor.tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
@@ -100,19 +103,83 @@ def build_compute_metrics(processor: Any):
 
 def run_training(
     config: TrainConfig,
-    train_examples: Sequence[TrainExample],
-    eval_examples: Sequence[TrainExample],
+    train_manifests: Sequence[Manifest],
+    eval_manifests: Sequence[Manifest],
     *,
-    audio_root: str | Path = ".",
+    registry: LicenseRegistry,
+    audio_root: str | Path,
+    held_out_manifests: Sequence[Manifest] = (),
+    text_decisions: Mapping[str, Mapping[str, str]] | None = None,
+    duration_of: DurationFn | None = None,
 ):
-    """Fine-tune ``config.model_id`` on the given examples, resuming if possible.
-
-    Runs on a GPU with torch/transformers/bitsandbytes installed. Returns the
-    trainer's final metrics. The heavy lifting (model load, audio decoding,
-    training loop) happens here; the plumbing that shapes it is tested elsewhere.
-    """
+    """Validate source manifests, train, evaluate and save. No pretrained calls occur before data
+    preflight."""
+    if not isinstance(config, TrainConfig):
+        raise ValueError("config must be TrainConfig")
+    all_manifests = [*train_manifests, *eval_manifests, *held_out_manifests]
+    if not all_manifests or any(not isinstance(m, Manifest) for m in all_manifests):
+        raise ValueError("training requires source manifests, not detached examples")
+    if not eval_manifests or any(m.split != "dev" for m in eval_manifests):
+        raise ValueError("training evaluation requires development manifests")
+    if len({m.name for m in all_manifests}) != len(all_manifests):
+        raise ValueError("training/development/held-out manifest names must be distinct")
+    selection = dict(
+        chunk_length_s=config.chunk_length_s,
+        min_chunk_length_s=config.min_chunk_length_s,
+        timestamp_sample_fraction=config.timestamp_sample_fraction,
+        seed=config.seed,
+        registry=registry,
+    )
+    train_examples = build_examples(train_manifests, **selection)
+    selection["timestamp_sample_fraction"] = 0.0
+    eval_examples = build_examples(eval_manifests, role="eval", **selection)
+    decisions = {} if text_decisions is None else text_decisions
+    evaluation = [*eval_manifests, *held_out_manifests]
+    if not isinstance(decisions, Mapping) or set(decisions) - {m.name for m in evaluation}:
+        raise ValueError("text_decisions has unknown evaluation manifest names")
+    for manifest in all_manifests:
+        manifest.validate_against(registry, training=manifest in train_manifests)
+        if any(seg.language != config.language for seg in manifest.segments):
+            raise ValueError(f"manifest {manifest.name!r}: language conflicts with training config")
+        validate_manifest_audio(manifest, audio_root, duration_of=duration_of)
+    audits = [
+        require_no_leakage(
+            train_manifests,
+            manifest,
+            text_decisions=decisions.get(manifest.name),
+            audio_root=audio_root,
+        )
+        for manifest in evaluation
+    ]
+    out = validate_training_output(config.output_dir, audio_root)
+    resume = decide_resume(out, enabled=config.resume)
+    identity = json.loads(
+        json.dumps(
+            {
+                "config": config.to_dict(),
+                "manifests": [asdict(m) for m in all_manifests],
+                "leakage": [asdict(report) for report in audits],
+            },
+            allow_nan=False,
+        )
+    )
+    identity_path = out / "training-inputs.json"
+    if not resolved_path(identity_path).is_relative_to(out):
+        raise ValueError("training identity path escapes output_dir")
+    if config.resume and identity_path.exists():
+        try:
+            prior = json.loads(identity_path.read_text(encoding="utf-8"))
+        except (ValueError, OSError) as exc:
+            raise ValueError("cannot read prior training identity") from exc
+        if prior != identity:
+            raise ValueError(
+                "output_dir contains a different training identity; choose a new output"
+            )
+    elif resume.resume:
+        raise ValueError("checkpoint has no declared training identity; choose a new output")
     from transformers import (
         Seq2SeqTrainer,
+        WhisperConfig,
         WhisperForConditionalGeneration,
         WhisperProcessor,
     )
@@ -122,17 +189,34 @@ def run_training(
     processor = WhisperProcessor.from_pretrained(
         config.model_id, language=config.language, task=config.task
     )
+    model_config = WhisperConfig.from_pretrained(config.model_id)
+    dataset_options = dict(
+        audio_root=audio_root,
+        max_target_positions=model_config.max_target_positions,
+        decoder_start_token_id=model_config.decoder_start_token_id,
+    )
+    train_ds = WhisperFineTuneDataset(train_examples, processor, config, **dataset_options)
+    eval_ds = WhisperFineTuneDataset(eval_examples, processor, config, **dataset_options)
+    train_ds.validate_labels()
+    eval_ds.validate_labels()
     model = WhisperForConditionalGeneration.from_pretrained(config.model_id)
     model.generation_config.language = config.language
     model.generation_config.task = config.task
+    model.generation_config.return_timestamps = False
+    model.generation_config.max_length = model_config.max_target_positions
+    model.generation_config.forced_decoder_ids = None
     if config.gradient_checkpointing:
         model.config.use_cache = False
-
-    train_ds = WhisperFineTuneDataset(train_examples, processor, config, audio_root=audio_root)
-    eval_ds = WhisperFineTuneDataset(eval_examples, processor, config, audio_root=audio_root)
+    if config.freeze_encoder:
+        if not callable(getattr(model, "freeze_encoder", None)):
+            raise ValueError("model does not support freeze_encoder")
+        model.freeze_encoder()
     collator = DataCollatorSpeechSeq2Seq(processor, model.config.decoder_start_token_id)
 
-    resume = decide_resume(config.output_dir, enabled=config.resume)
+    out.mkdir(parents=True, exist_ok=True)
+    identity_path.write_text(
+        json.dumps(identity, indent=2, ensure_ascii=False, allow_nan=False) + "\n", encoding="utf-8"
+    )
     trainer = Seq2SeqTrainer(
         model=model,
         args=to_training_arguments(config),
@@ -142,21 +226,14 @@ def run_training(
         compute_metrics=build_compute_metrics(processor),
         processing_class=processor,
     )
-    result = trainer.train(
-        resume_from_checkpoint=str(resume.checkpoint) if resume.resume else None
-    )
+    result = trainer.train(resume_from_checkpoint=str(resume.checkpoint) if resume.resume else None)
+    evaluation_metrics = trainer.evaluate()
     trainer.save_model(config.output_dir)
-    return result.metrics
+    return {**result.metrics, **evaluation_metrics}
 
 
 def smoke_step(output_dir: str | Path) -> dict:
-    """Run one training step on CPU with a tiny model — no download, no audio files.
-
-    Exercises the real plumbing (config → training args, model forward/backward on
-    log-mel inputs, optimizer step, checkpoint save+reload) in seconds, so a broken
-    training loop is caught before a multi-hour GPU run. Requires torch +
-    transformers; skipped where they are absent.
-    """
+    """Check CPU plumbing with a randomly initialized tiny model."""
     import torch
     from transformers import WhisperConfig, WhisperForConditionalGeneration
 

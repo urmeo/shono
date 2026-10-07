@@ -1,6 +1,6 @@
 {
-  "as_of": "2026-07-23",
-  "note": "Per-source license floor for Shono. Shono never commits or redistributes raw audio regardless of these flags; `redistributable_audio` records what each source's own license permits, so a release check can double-check obligations. `status`: active = in the train/eval mix; eval-only = used for evaluation only, never training; excluded = not used until its blocker clears. Facts carry a per-fact confidence; commercial/pricing facts are the most perishable (re-verify after 2026-10-15).",
+  "as_of": "2026-10-07",
+  "note": "Dataset catalog and local use tiers; source terms remain separate from the MIT code license. Hours describe source records, not measured Shono training data.",
   "licenses": [
     {
       "id": "common_voice_bn",
@@ -10,12 +10,12 @@
       "redistributable_audio": true,
       "attribution_required": false,
       "share_alike": false,
-      "access": "Mozilla Data Collective (account + ToS) since Oct 2025; official HF repos emptied; community mirror fsicoli/common_voice_22_0 as fallback",
+      "access": "Mozilla Data Collective; verify the selected release and access terms.",
       "status": "active",
       "hours": 54.32,
       "domain": "read",
       "version": "cv-corpus-26.0 (cutoff 2026-06-12)",
-      "notes": "54.32 h validated of 1277.5 h recorded, ~1.05M clips. Public-domain dedication (CC0).",
+      "notes": "CC0 source catalog. Version/hours are recorded metadata, not a measured project total.",
       "confidence": "H"
     },
     {
@@ -31,24 +31,24 @@
       "hours": 215.0,
       "domain": "read",
       "version": "SLR53",
-      "notes": "~196k utterances (215-229 h secondary estimates). Share-alike: derivative distributions inherit CC-BY-SA. Quality-checked but residual errors possible.",
+      "notes": "Official SLR53 release: CC-BY-SA-4.0; approximately196k utterances. Recorded hours are a source estimate.",
       "confidence": "H"
     },
     {
       "id": "bengali_loop",
       "name": "Bengali-Loop (long-form + diarization benchmark)",
       "url": "https://arxiv.org/abs/2602.14291",
-      "license": "CC-BY-4.0",
+      "license": "unconfirmed",
       "redistributable_audio": false,
       "attribution_required": true,
       "share_alike": false,
-      "access": "Annotations + YouTube links published by the authors; audio NOT redistributed — fetch from source links",
-      "status": "active",
+      "access": "Kaggle competition releases; inspect and confirm their annotation and media terms before use.",
+      "status": "excluded",
       "hours": 158.6,
       "domain": "long-form",
       "version": "arXiv 2602.14291 (Feb 2026)",
-      "notes": "CC-BY-4.0 covers the annotations only; audio stays at source (links + transcripts + scripts). 191 recordings/158.6 h ASR + 24 recordings/22 h diarization (5744 speaker segments). Published baselines: tugstugi medium 34.07% WER, pyannote out-of-box 40.08% DER.",
-      "confidence": "H"
+      "notes": "The cited paper is CC-BY-4.0; it does not establish a dataset grant. Its release section limits media redistribution. 191 ASR recordings/158.6 h and24 diarization recordings/22 h are source corpus counts, not Shono results. Excluded until release terms are recorded.",
+      "confidence": "M"
     },
     {
       "id": "mucs_slr104",
@@ -63,7 +63,7 @@
       "hours": 46.11,
       "domain": "code-switch",
       "version": "SLR104 (MUCS 2021)",
-      "notes": "46.11 h train + 7.02 h test, technical-lecture domain. The only sizeable real Bn-En code-switch corpus; everything else is synthetic or command-only. Share-alike.",
+      "notes": "Official SLR104 release: CC-BY-SA-4.0. Recorded hours refer to the Bengali-English training subset; no project benchmark is measured.",
       "confidence": "H"
     },
     {
@@ -79,23 +79,23 @@
       "hours": 10.0,
       "domain": "read",
       "version": "fleurs",
-      "notes": "Read-speech eval benchmark; ~10 h/language. Eval-only — never in the training mix. Reference point: zero-shot large-v3 ~33.9% WER on Bengali FLEURS.",
+      "notes": "Read-speech evaluation source; not included in training. Its published baseline is not a Shono result.",
       "confidence": "H"
     },
     {
       "id": "youtube_eval",
       "name": "Shono private lecture/podcast eval set (YouTube-sourced)",
       "url": "",
-      "license": "mixed-source; fair-dealing-for-research; not redistributed",
+      "license": "source-specific; permission unconfirmed",
       "redistributable_audio": false,
       "attribution_required": true,
       "share_alike": false,
-      "access": "Built in-project: audio strictly local/Kaggle-private; only links + timestamps + corrected transcripts + scoring scripts ever published, with a takedown path",
-      "status": "eval-only",
+      "access": "Private evaluation proposal; no media or manifest released.",
+      "status": "excluded",
       "hours": null,
       "domain": "long-form",
       "version": "private-v1",
-      "notes": "Eval-only, never training data. Publishing the manifest requires an explicit release decision. Legal basis: BD Copyright Act 2023 & India s.52(1)(a) research fair-dealing (M-confidence; not legal advice).",
+      "notes": "Evaluation only; source permissions and any release decision must be recorded. The previous fair-dealing statement did not establish a grant.",
       "confidence": "M"
     },
     {
@@ -111,7 +111,7 @@
       "hours": 1178.0,
       "domain": "out-of-domain",
       "version": "arXiv 2305.09688",
-      "notes": "EXCLUDED until license is confirmed from the Kaggle page. 1178 h train + 23 h manually-annotated 17-domain OOD test — the best robustness set, blocked only on the license line.",
+      "notes": "Excluded until the selected release license is confirmed. Recorded hours are source metadata.",
       "confidence": "H"
     }
   ]

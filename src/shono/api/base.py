@@ -1,56 +1,88 @@
-"""Commercial ASR APIs behind one interface, with a hard $0-spend guard.
-
-Every API (Google Chirp, Deepgram, …) implements the same :class:`ApiTranscriber`
-protocol, so the benchmark treats them as interchangeable systems and — via
-:func:`run_over_manifest` — turns each into a :class:`Predictions` set that the
-existing report scores against ours and the base model. No parallel comparison
-path; the APIs are just more columns.
-
-:class:`BudgetGuard` enforces the project's rule: benchmark within free credits
-only. A run whose audio exceeds the provider's free allowance is refused unless
-paid spend is *explicitly* opted into — the point where a human L-gate belongs.
-Tests drive all of this with a fake transcriber; no adapter here makes a real
-call until its lazy client is constructed with real credentials.
-"""
+"""Run validated audio manifests with a cumulative declared-duration allowance."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
+from threading import Lock
 from typing import Protocol, runtime_checkable
 
+from shono.data.audio_paths import validate_audio_window, validate_manifest_audio
 from shono.data.manifest import Manifest
 from shono.eval.report import Predictions
-from shono.provenance import RunContext
+from shono.provenance import RunContext, safe_metadata
+from shono.transcribe._validation import finite_real, finite_sum
 
 
 @runtime_checkable
 class ApiTranscriber(Protocol):
-    """Transcribe one audio span. ``start_s``/``duration_s`` select a window for long-form."""
-
     def transcribe(
         self, audio_path: str, start_s: float | None = None, duration_s: float | None = None
     ) -> str: ...
 
 
 class BudgetError(RuntimeError):
-    """Raised when a benchmark run would spend money without an explicit opt-in."""
+    """The declared provider allowance would be exceeded."""
 
 
-@dataclass(frozen=True)
+@dataclass
 class BudgetGuard:
-    """Refuse runs beyond a provider's free allowance unless paid spend is opted into."""
+    """Reserve declared audio hours; account credit and actual charges remain unknown."""
 
-    free_hours: float
+    free_hours: float = 0.0
     allow_paid: bool = False
+    _reservations: list[float] = field(default_factory=list, init=False, repr=False)
+    _lock: object = field(default_factory=Lock, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        finite_real(self.free_hours, "free_hours", minimum=0)
+        if not isinstance(self.allow_paid, bool):
+            raise ValueError("allow_paid must be boolean")
+
+    @property
+    def used_hours(self) -> float:
+        with self._lock:
+            return finite_sum(self._reservations, "reserved hours")
+
+    def _checked(self, hours: float) -> float:
+        requested = finite_real(hours, "requested hours", minimum=0)
+        allowance = finite_real(self.free_hours, "free_hours", minimum=0)
+        if not isinstance(self.allow_paid, bool):
+            raise ValueError("allow_paid must be boolean")
+        total = finite_sum([*self._reservations, requested], "cumulative requested hours")
+        if total > allowance and not self.allow_paid:
+            raise BudgetError(
+                f"cumulative run needs {total:.3f} h but declared allowance is {allowance:.3f} h; "
+                "paid spend requires an explicit decision (allow_paid=True)"
+            )
+        return requested
 
     def check(self, hours: float) -> None:
-        if hours > self.free_hours and not self.allow_paid:
-            raise BudgetError(
-                f"run needs {hours:.2f} h of transcription but only {self.free_hours:.2f} h "
-                "are within the free allowance; paid spend requires an explicit decision "
-                "(allow_paid=True) — do not exceed free credits without one"
-            )
+        """Preflight a workload against the remaining allowance without reserving it."""
+        with self._lock:
+            self._checked(hours)
+
+    def reserve(self, hours: float) -> None:
+        """Consume a workload before calls; failed requests do not refund it."""
+        with self._lock:
+            self._reservations.append(self._checked(hours))
+
+
+def preflight_manifest(
+    manifest: Manifest,
+    *,
+    audio_root: str | Path = ".",
+    duration_of: Callable[[Path], float] | None = None,
+) -> tuple[tuple[Path, ...], float]:
+    """Validate all selected files/windows and return paths plus actual audio hours."""
+    paths = validate_manifest_audio(manifest, audio_root, duration_of=duration_of)
+    seconds = [
+        validate_audio_window(path, seg.start_s, seg.duration_s, duration_of=duration_of)
+        for path, seg in zip(paths, manifest.segments, strict=True)
+    ]
+    total = finite_sum(seconds, "manifest audio workload")
+    return paths, total / 3600
 
 
 def run_over_manifest(
@@ -61,22 +93,31 @@ def run_over_manifest(
     audio_root: str | Path = ".",
     budget: BudgetGuard | None = None,
     run_context: RunContext | None = None,
+    duration_of: Callable[[Path], float] | None = None,
 ) -> Predictions:
-    """Transcribe every segment of ``manifest`` with ``transcriber`` into a Predictions set.
-
-    If ``budget`` is given, the run is checked against it first — the whole
-    manifest is refused before a single paid call if it would exceed free credits.
-    """
+    """Preflight and reserve the entire manifest before invoking its transcriber."""
+    if not isinstance(system, str) or not system.strip():
+        raise ValueError("system label must be non-empty text")
+    paths, hours = preflight_manifest(manifest, audio_root=audio_root, duration_of=duration_of)
+    if budget is None and getattr(transcriber, "requires_budget", False):
+        budget = BudgetGuard()
     if budget is not None:
-        budget.check(manifest.total_hours())
-    root = Path(audio_root)
-    hypotheses = {
-        seg.id: transcriber.transcribe(str(root / seg.audio), seg.start_s, seg.duration_s)
-        for seg in manifest.segments
-    }
+        budget.reserve(hours)
+    hypotheses: dict[str, str] = {}
+    for path, seg in zip(paths, manifest.segments, strict=True):
+        text = transcriber.transcribe(str(path), seg.start_s, seg.duration_s)
+        if not isinstance(text, str):
+            raise ValueError(f"transcriber returned non-text for segment {seg.id!r}")
+        hypotheses[seg.id] = text
+    context = run_context.to_dict() if run_context else None
+    observer = getattr(transcriber, "observed_runtime_context", None)
+    if callable(observer):
+        context = context or {}
+        context["observed_runtime"] = safe_metadata(observer())
     return Predictions(
-        system=system,
-        manifest=manifest.name,
-        hypotheses=hypotheses,
-        run_context=run_context.to_dict() if run_context else None,
+        system,
+        manifest.name,
+        hypotheses,
+        run_context=context,
+        input_paths=tuple(str(path) for path in paths),
     )

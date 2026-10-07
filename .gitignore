@@ -1,10 +1,7 @@
-# Ship .gitignore
 .DS_Store
 Thumbs.db
 .env
 .env.*
-
-# Python
 __pycache__/
 *.pyc
 .venv/
@@ -12,8 +9,6 @@ __pycache__/
 .ruff_cache/
 dist/
 *.egg-info/
-
-# Audio, models, and bulk data never enter git — manifests only
 *.wav
 *.mp3
 *.m4a
@@ -27,3 +22,5 @@ dist/
 data/raw/
 data/audio/
 checkpoints/
+outputs/training/
+outputs/*.jsonl

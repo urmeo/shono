@@ -1,19 +1,27 @@
-"""The leakage audit finds id, text, and audio overlap — and stays honest when clean."""
+"""The leakage audit finds id, text, and audio overlap : and stays honest when clean."""
 
 from shono.data import Manifest, Segment, audit_leakage
 
 
 def _m(name, split, segs):
     return Manifest(
-        name=name, source="openslr_slr53", split=split, domain="read",
-        version="v", segments=tuple(segs),
+        name=name,
+        source="openslr_slr53",
+        split=split,
+        domain="read",
+        version="v",
+        segments=tuple(segs),
     )
 
 
 def _seg(sid, text, *, rec=None, sha=None):
     return Segment(
-        id=sid, audio=f"{sid}.wav", text=text, duration_s=2.0,
-        recording_id=rec or sid, audio_sha256=sha,
+        id=sid,
+        audio=f"{sid}.wav",
+        text=text,
+        duration_s=2.0,
+        recording_id=rec or sid,
+        audio_sha256=sha,
     )
 
 
@@ -30,12 +38,12 @@ def test_detects_shared_segment_id():
     test = _m("test", "test", [_seg("shared", "সম্পূর্ণ ভিন্ন বাক্য")])
     report = audit_leakage(train, test, check=["id"])
     ids = report.by_kind("id")
-    assert len(ids) == 1 and ids[0].key == "shared"
+    assert len(ids) == 1 and ids[0].key == "openslr_slr53:shared"
     assert not report.is_clean
 
 
 def test_detects_text_overlap_under_frozen_normalizer():
-    # Same sentence, different punctuation/id — must collide because the frozen
+    # Same sentence, different punctuation/id : must collide because the frozen
     # normalizer canonicalizes both to the same string.
     train = _m("train", "train", [_seg("t1", "আমি ভাত খাই।")])
     test = _m("test", "test", [_seg("e1", "আমি ভাত খাই")])
@@ -46,14 +54,14 @@ def test_detects_text_overlap_under_frozen_normalizer():
 
 
 def test_detects_audio_checksum_overlap():
-    train = _m("train", "train", [_seg("t1", "কথা এক", sha="deadbeef")])
-    test = _m("test", "test", [_seg("e1", "কথা দুই", sha="deadbeef")])
+    train = _m("train", "train", [_seg("t1", "কথা এক", sha="d" * 64)])
+    test = _m("test", "test", [_seg("e1", "কথা দুই", sha="d" * 64)])
     report = audit_leakage(train, test, check=["audio"])
     assert len(report.by_kind("audio")) == 1
 
 
 def test_audio_coverage_reported_when_checksums_partial():
-    train = _m("train", "train", [_seg("t1", "কথা", sha="aa")])
+    train = _m("train", "train", [_seg("t1", "কথা", sha="a" * 64)])
     test = _m("test", "test", [_seg("e1", "ভিন্ন")])  # no checksum
     report = audit_leakage(train, test, check=["audio"])
     assert report.audio_coverage == 0.5  # 1 of 2 segments carried a checksum

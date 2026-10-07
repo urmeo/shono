@@ -1,7 +1,7 @@
 [project]
 name = "shono"
-version = "0.1.0"
-description = "Shono (শোনো) — Bengali ASR that survives the real world: long-form, diarization, code-switching, honestly scored."
+version = "0.1.1"
+description = "Bengali speech transcription and evaluation tools."
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 license = { file = "LICENSE" }
@@ -10,10 +10,14 @@ dependencies = [
     "jiwer==4.0.0",
 ]
 
+[project.optional-dependencies]
+audio = ["soundfile>=0.13,<0.14", "numpy>=1.26,<3"]
+
 [dependency-groups]
 dev = [
     "pytest==9.1.1",
     "ruff==0.15.21",
+    "ipython>=8.18,<10",
 ]
 
 [build-system]

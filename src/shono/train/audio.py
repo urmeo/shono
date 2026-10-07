@@ -1,16 +1,4 @@
-"""Audio → log-mel features + label ids — the torch-dependent half of the dataloader.
-
-Loads each example's audio (resampling to 16 kHz), extracts Whisper's log-mel
-features, and tokenizes the target. When an example is marked ``use_timestamps``
-(a fraction are, so the model does not forget timestamps), the target is wrapped
-with **segment-level** timestamp tokens ``<|0.00|> … <|end|>`` — word-level
-alignment is out of scope here. torch/transformers/librosa are imported lazily,
-so importing this module never requires them; only constructing the dataset does.
-
-The first real run must sanity-check a few timestamped targets (a known Whisper
-fine-tuning failure mode is timestamp forgetting) — that check lives in the
-training notebook.
-"""
+"""Load aligned audio, preserve masks and bound decoder targets."""
 
 from __future__ import annotations
 
@@ -18,6 +6,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from shono.data.audio_paths import resolved_path, validate_audio_window
+from shono.data.validation import real_number
 from shono.train.config import TrainConfig
 from shono.train.data import TrainExample
 
@@ -27,17 +17,28 @@ _TIMESTAMP_RESOLUTION_S = 0.02  # Whisper emits one timestamp token per 20 ms
 
 def _load_audio(path: Path, start_s: float | None, duration_s: float):
     import librosa
+    import numpy as np
 
-    offset = start_s or 0.0
+    selected = validate_audio_window(path, start_s, duration_s)
+    offset = 0.0 if start_s is None else start_s
     audio, _ = librosa.load(
-        path, sr=TARGET_SAMPLE_RATE, offset=offset, duration=duration_s, mono=True
+        path, sr=TARGET_SAMPLE_RATE, offset=offset, duration=selected, mono=True
     )
+    if audio.ndim != 1 or not len(audio) or np.iscomplexobj(audio) or not np.isfinite(audio).all():
+        raise ValueError("decoded audio must contain finite mono samples")
+    if abs(len(audio) / TARGET_SAMPLE_RATE - selected) > 0.001:
+        raise ValueError("decoded audio sample count does not match the selected window")
     return audio
 
 
 def _timestamp_token_id(tokenizer: Any, seconds: float) -> int:
     """Whisper timestamp token id for ``seconds`` (0.02 s grid from the ``<|0.00|>`` base)."""
+    seconds = real_number(seconds, "timestamp seconds")
+    if not 0 <= seconds <= 30:
+        raise ValueError("timestamp seconds must be in [0, 30]")
     base = tokenizer.convert_tokens_to_ids("<|0.00|>")
+    if type(base) is not int or base == getattr(tokenizer, "unk_token_id", None):
+        raise ValueError("tokenizer does not support Whisper timestamp tokens")
     steps = int(round(seconds / _TIMESTAMP_RESOLUTION_S))
     return base + max(steps, 0)
 
@@ -52,37 +53,74 @@ class WhisperFineTuneDataset:
         config: TrainConfig,
         *,
         audio_root: str | Path = ".",
+        max_target_positions: int,
+        decoder_start_token_id: int,
     ) -> None:
         self.examples = list(examples)
         self.processor = processor
         self.config = config
-        self.audio_root = Path(audio_root)
+        self.audio_root = resolved_path(audio_root)
+        if type(max_target_positions) is not int or max_target_positions < 1:
+            raise ValueError("max_target_positions must be a positive integer")
+        self.max_target_positions = max_target_positions
+        self.decoder_start_token_id = decoder_start_token_id
+        self.paths = []
+        for example in self.examples:
+            if not config.min_chunk_length_s <= example.duration_s <= config.chunk_length_s:
+                raise ValueError("example duration is outside the supported training window")
+            path = resolved_path(self.audio_root / example.audio)
+            if not path.is_relative_to(self.audio_root) or not path.is_file():
+                raise ValueError(f"example {example.id!r}: missing/escaping audio file")
+            self.paths.append(path)
 
     def __len__(self) -> int:
         return len(self.examples)
 
     def __getitem__(self, index: int) -> dict:
         example = self.examples[index]
-        audio = _load_audio(
-            self.audio_root / example.audio, example.start_s, example.duration_s
+        audio = _load_audio(self.paths[index], example.start_s, example.duration_s)
+        encoded = self.processor.feature_extractor(
+            audio, sampling_rate=TARGET_SAMPLE_RATE, return_attention_mask=True
         )
-        features = self.processor.feature_extractor(
-            audio, sampling_rate=TARGET_SAMPLE_RATE
-        ).input_features[0]
+        features = encoded.input_features[0]
         labels = self._labels_for(example)
-        return {"input_features": features, "labels": labels}
+        return {
+            "input_features": features,
+            "attention_mask": encoded.attention_mask[0],
+            "labels": labels,
+        }
 
     def _labels_for(self, example: TrainExample) -> list[int]:
         tokenizer = self.processor.tokenizer
         if not example.use_timestamps:
-            return tokenizer(example.text).input_ids
+            labels = tokenizer(example.text).input_ids
+            return self._validate_labels(labels, example)
         # Segment-level timestamps: <|sot|><|bn|><|transcribe|> <|0.00|> text <|end|> <|eot|>.
         # The default prefix ends with <|notimestamps|>, which contradicts a timestamped
-        # target — drop it, or the model is trained on "no timestamps" then timestamps.
+        # Remove the no-timestamps prefix from timestamp targets.
         no_ts = tokenizer.convert_tokens_to_ids("<|notimestamps|>")
         prefix = [t for t in tokenizer.prefix_tokens if t != no_ts]
         text_ids = tokenizer(example.text, add_special_tokens=False).input_ids
-        end = min(example.duration_s, self.config.chunk_length_s)
+        end = example.duration_s
+        if end > self.config.chunk_length_s:
+            raise ValueError("example duration exceeds training chunk_length_s")
         start_tok = _timestamp_token_id(tokenizer, 0.0)
         end_tok = _timestamp_token_id(tokenizer, end)
-        return [*prefix, start_tok, *text_ids, end_tok, tokenizer.eos_token_id]
+        return self._validate_labels(
+            [*prefix, start_tok, *text_ids, end_tok, tokenizer.eos_token_id], example
+        )
+
+    def _validate_labels(self, labels: list[int], example: TrainExample) -> list[int]:
+        if not labels or any(type(token) is not int or token < 0 for token in labels):
+            raise ValueError("target must contain nonnegative integer token IDs")
+        count = len(labels) - (labels[0] == self.decoder_start_token_id)
+        if count > self.max_target_positions:
+            raise ValueError(
+                f"example {example.source}:{example.id}: target has {count} tokens; "
+                f"model capacity is {self.max_target_positions}"
+            )
+        return labels
+
+    def validate_labels(self) -> None:
+        for example in self.examples:
+            self._labels_for(example)

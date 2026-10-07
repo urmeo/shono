@@ -1,0 +1,6 @@
+[verification]
+kind = "hand-computed text fixtures; not model evaluation"
+raw_policy = "whitespace canonicalization only"
+absolute_tolerance = 1e-12
+checks = 11
+fixture_sha256 = "2a84e0a894f69a079f31234906587e748163b19dad9bde358bdbdf08e653e280"

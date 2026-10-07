@@ -1,4 +1,4 @@
-"""Scoring matches hand-computed values, and raw vs normalized behave honestly."""
+"""Hand-computed corpus scores and normalization boundaries."""
 
 import json
 from pathlib import Path
@@ -26,7 +26,7 @@ def test_raw_wer_treats_any_whitespace_as_separator():
 
 
 def test_raw_scoring_never_folds_case():
-    # 'Bank' vs 'bank' IS an error, raw and normalized — casing is preserved
+    # 'Bank' vs 'bank' IS an error, raw and normalized; casing is preserved
     # end to end (documented policy in shono.eval.normalize).
     assert wer(["আমি Bank এ যাব"], ["আমি bank এ যাব"]) == pytest.approx(0.25)
     report = score(["আমি Bank এ যাব"], ["আমি bank এ যাব"])
@@ -72,7 +72,7 @@ def test_empty_reference_raises():
 
 
 def test_reference_empty_after_normalization_raises():
-    # A reference that is pure symbols normalizes to nothing — loud failure,
+    # A reference that is pure symbols normalizes to nothing; loud failure,
     # not a silent 0-word segment.
     with pytest.raises(ValueError, match="empty"):
         score(["৳!"], ["টাকা"])

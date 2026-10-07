@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="670" viewBox="0 0 1200 670" role="img" aria-labelledby="title description">
+<title id="title">Scorer verification</title>
+<desc id="description">Hand-computed text fixtures. All six word-error and five character-error checks match. No model accuracy is measured.</desc>
+<rect width="1200" height="670" fill="#f7fafc"/>
+<g font-family="Arial, sans-serif" fill="#172b42">
+<text x="46" y="59" font-size="32" font-weight="700">Scorer verification</text>
+<text x="46" y="94" font-size="21">Hand-computed fixtures; no model predictions</text>
+<text x="46" y="135" font-size="22" fill="#146650">6/6 WER · 5/5 CER checks passed</text>
+<text x="46" y="214" font-size="21">Identical</text>
+<rect x="365" y="190" width="650" height="32" rx="4" fill="#e5edf4"/>
+<rect x="365" y="190" width="0.000" height="32" rx="4" fill="#2873ab"/>
+<path d="M365.000,186v40" stroke="#172b42" stroke-width="3"/>
+<text x="1044" y="214" font-size="22">0.0%</text>
+<text x="46" y="276" font-size="21">1 word substituted</text>
+<rect x="365" y="252" width="650" height="32" rx="4" fill="#e5edf4"/>
+<rect x="365" y="252" width="541.667" height="32" rx="4" fill="#2873ab"/>
+<path d="M906.667,248v40" stroke="#172b42" stroke-width="3"/>
+<text x="1044" y="276" font-size="22">33.3%</text>
+<text x="46" y="338" font-size="21">1 word deleted</text>
+<rect x="365" y="314" width="650" height="32" rx="4" fill="#e5edf4"/>
+<rect x="365" y="314" width="406.250" height="32" rx="4" fill="#2873ab"/>
+<path d="M771.250,310v40" stroke="#172b42" stroke-width="3"/>
+<text x="1044" y="338" font-size="22">25.0%</text>
+<text x="46" y="400" font-size="21">Identical mixed script</text>
+<rect x="365" y="376" width="650" height="32" rx="4" fill="#e5edf4"/>
+<rect x="365" y="376" width="0.000" height="32" rx="4" fill="#2873ab"/>
+<path d="M365.000,372v40" stroke="#172b42" stroke-width="3"/>
+<text x="1044" y="400" font-size="22">0.0%</text>
+<text x="46" y="462" font-size="21">Pooled: equal lengths</text>
+<rect x="365" y="438" width="650" height="32" rx="4" fill="#e5edf4"/>
+<rect x="365" y="438" width="270.833" height="32" rx="4" fill="#2873ab"/>
+<path d="M635.833,434v40" stroke="#172b42" stroke-width="3"/>
+<text x="1044" y="462" font-size="22">16.7%</text>
+<text x="46" y="524" font-size="21">Pooled: unequal lengths</text>
+<rect x="365" y="500" width="650" height="32" rx="4" fill="#e5edf4"/>
+<rect x="365" y="500" width="406.250" height="32" rx="4" fill="#2873ab"/>
+<path d="M771.250,496v40" stroke="#172b42" stroke-width="3"/>
+<text x="1044" y="524" font-size="22">25.0%</text>
+<text x="365" y="590" font-size="18">0%</text>
+<text x="980" y="590" font-size="18">40%</text>
+<text x="46" y="637" font-size="19">Blue: measured WER · marker: hand-computed expectation</text>
+</g></svg>

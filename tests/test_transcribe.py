@@ -68,8 +68,12 @@ def test_nested_segment_does_not_shrink_coverage():
 
 def _chunk(text="কথা", logprob=-0.2, comp=1.5, nosp=0.1, **kw):
     return ChunkTranscription(
-        window_start_s=kw.get("start", 0.0), window_end_s=kw.get("end", 5.0),
-        text=text, avg_logprob=logprob, compression_ratio=comp, no_speech_prob=nosp,
+        window_start_s=kw.get("start", 0.0),
+        window_end_s=kw.get("end", 5.0),
+        text=text,
+        avg_logprob=logprob,
+        compression_ratio=comp,
+        no_speech_prob=nosp,
         words=kw.get("words", ()),
     )
 
@@ -134,14 +138,13 @@ def test_merge_skips_wordless_chunk_fully_covered():
     assert merge_transcriptions([a, covered]).text == "সব"
 
 
-def test_merge_wordless_overlap_is_dropped_not_duplicated():
-    # A wordless chunk starting inside covered time is dropped, never re-emitted —
-    # dropping is honest where duplicating would fabricate a repeat.
+def test_merge_wordless_overlap_keeps_new_tail_with_warning():
     a = ChunkTranscription(0.0, 10.0, "শেষ", words=(Word(8.0, 9.0, "শেষ"),))
-    b = ChunkTranscription(8.0, 18.0, "শেষ নতুন")  # no word timings, overlaps a
-    text = merge_transcriptions([a, b]).text
-    assert "শেষ শেষ" not in text
-    assert text == "শেষ"
+    b = ChunkTranscription(8.0, 18.0, "শেষ নতুন")
+    result = merge_transcriptions([a, b])
+    assert result.text == "শেষ শেষ নতুন"
+    assert result.warnings
+    assert result.segments[-1].timing_precision == "chunk"
 
 
 # ---- real-time factor ----------------------------------------------------
@@ -169,10 +172,10 @@ class _FakeTranscriber:
 
     def transcribe_chunk(self, audio_path, start_s, end_s):
         if start_s >= 100:  # the last chunk is silence hallucinated as text
-            return ChunkTranscription(start_s, end_s, "নকল", no_speech_prob=0.95,
-                                      words=(Word(0.0, 1.0, "নকল"),))
-        return ChunkTranscription(start_s, end_s, "ভালো",
-                                  words=(Word(0.0, 1.0, "ভালো"),))
+            return ChunkTranscription(
+                start_s, end_s, "নকল", no_speech_prob=0.95, words=(Word(0.0, 1.0, "নকল"),)
+            )
+        return ChunkTranscription(start_s, end_s, "ভালো", words=(Word(0.0, 1.0, "ভালো"),))
 
 
 def test_pipeline_end_to_end_with_fakes():
@@ -188,16 +191,18 @@ def test_pipeline_end_to_end_with_fakes():
     assert result.rtf < 1.0
 
 
-def test_long_form_pipeline_transcriber_returns_merged_text():
+def test_long_form_pipeline_transcriber_returns_merged_text(monkeypatch):
     # Adapts the pipeline to the transcribe(path)->str protocol for recording-level eval.
     from shono.transcribe import LongFormPipelineTranscriber
 
     pipeline = LongFormTranscriber(
-        _FakeVAD([SpeechSegment(0, 20), SpeechSegment(100, 105)]), _FakeTranscriber(),
+        _FakeVAD([SpeechSegment(0, 20), SpeechSegment(100, 105)]),
+        _FakeTranscriber(),
         pad_s=0.0,
     )
     adapter = LongFormPipelineTranscriber(pipeline)
-    text = adapter.transcribe("rec.wav", duration_s=200.0)  # duration given → no audio read
+    monkeypatch.setattr("shono.transcribe.pipeline.validate_audio_window", lambda *a, **kw: 200.0)
+    text = adapter.transcribe("rec.wav", duration_s=200.0)
     assert text == "ভালো"  # hallucinated silence chunk excluded from the merged text
 
 
@@ -208,19 +213,9 @@ def test_cli_missing_audio_exits_2_without_loading_torch():
     assert main(["/no/such/file.wav", "--model", "/some/ct2"]) == 2
 
 
-def test_short_form_whisper_transcriber_wiring(tmp_path):
-    # Prove the baseline transcriber's load→features→generate→decode path works,
-    # end to end, with a real (tiny) Whisper — runs where torch/transformers exist.
-    pytest.importorskip("torch")
-    pytest.importorskip("transformers")
-    sf = pytest.importorskip("soundfile")
-    pytest.importorskip("librosa")
-    import numpy as np
-
+def test_short_form_runtime_is_tested_without_model_downloads():
+    # The fake SDK wiring regression is in test_runtime_adapters.py.
     from shono.transcribe import ShortFormWhisperTranscriber
 
-    wav = tmp_path / "clip.wav"
-    sf.write(wav, np.zeros(16000, dtype="float32"), 16000)  # 1 s of silence
-    transcriber = ShortFormWhisperTranscriber("openai/whisper-tiny", language="en")
-    text = transcriber.transcribe(str(wav))
-    assert isinstance(text, str)  # a real decode, not a crash
+    adapter = ShortFormWhisperTranscriber("local-checkpoint", device="cpu")
+    assert adapter.observed_runtime_context()["generation_config"] == "unknown"

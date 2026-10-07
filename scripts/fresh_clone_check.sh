@@ -1,15 +1,9 @@
 #!/usr/bin/env bash
-# Prove the README quickstart works from a clean clone: clone this repo into a
-# throwaway directory and run ./verify there, with no local state to lean on.
-# This is the ship-gate "fresh-environment rebuild from docs alone" check.
 set -euo pipefail
-
-here="$(cd "$(dirname "$0")/.." && pwd)"
-tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
-
-echo "fresh clone: $here -> $tmp/shono"
-git clone --quiet "$here" "$tmp/shono"
-cd "$tmp/shono"
+repository="$(cd "$(dirname "$0")/.." && pwd)"
+shono_check_dir="$(mktemp -d)"
+trap 'rm -rf "$shono_check_dir"' EXIT
+git clone --quiet --no-local "$repository" "$shono_check_dir/shono"
+cd "$shono_check_dir/shono"
+unset UV_PROJECT_ENVIRONMENT
 ./verify
-echo "fresh-clone rebuild OK"

@@ -1,37 +1,76 @@
 {
   "name": "baselines",
-  "title": "Shono baselines — the numbers every fine-tune must beat",
+  "title": "Shono baselines results",
   "seed": 0,
   "n_resamples": 1000,
   "slices": [
-    {"name": "cv-bn-test", "manifest": "data/cv-bn-test.manifest.jsonl", "domain": "read"},
-    {"name": "fleurs-bn-test", "manifest": "data/fleurs-bn-test.manifest.jsonl", "domain": "read"},
-    {"name": "bengali-loop-sample", "manifest": "data/bengali-loop-sample.manifest.jsonl", "domain": "long-form"}
+    {
+      "name": "cv-bn-test",
+      "manifest": "data/cv-bn-test.manifest.jsonl",
+      "domain": "read"
+    },
+    {
+      "name": "fleurs-bn-test",
+      "manifest": "data/fleurs-bn-test.manifest.jsonl",
+      "domain": "read"
+    },
+    {
+      "name": "bengali-loop-sample",
+      "manifest": "data/bengali-loop-sample.manifest.jsonl",
+      "domain": "long-form"
+    }
   ],
   "systems": [
     {
       "name": "whisper-large-v3 (zero-shot)",
+      "model_id": "openai/whisper-large-v3",
       "predictions": {
-        "cv-bn-test": "reports/predictions/large-v3__cv-bn-test.jsonl",
-        "fleurs-bn-test": "reports/predictions/large-v3__fleurs-bn-test.jsonl",
-        "bengali-loop-sample": "reports/predictions/large-v3__bengali-loop-sample.jsonl"
-      }
+        "cv-bn-test": "outputs/large-v3__cv-bn-test.jsonl",
+        "fleurs-bn-test": "outputs/large-v3__fleurs-bn-test.jsonl",
+        "bengali-loop-sample": "outputs/large-v3__bengali-loop-sample.jsonl"
+      },
+      "inference_modes": {
+        "cv-bn-test": "bounded-short",
+        "fleurs-bn-test": "bounded-short",
+        "bengali-loop-sample": "long-form-vad"
+      },
+      "training_audit": "unknown",
+      "train_manifests": [],
+      "pending_slices": {}
     },
     {
       "name": "whisper-large-v3-turbo (zero-shot)",
+      "model_id": "openai/whisper-large-v3-turbo",
       "predictions": {
-        "cv-bn-test": "reports/predictions/large-v3-turbo__cv-bn-test.jsonl",
-        "fleurs-bn-test": "reports/predictions/large-v3-turbo__fleurs-bn-test.jsonl",
-        "bengali-loop-sample": "reports/predictions/large-v3-turbo__bengali-loop-sample.jsonl"
-      }
+        "cv-bn-test": "outputs/large-v3-turbo__cv-bn-test.jsonl",
+        "fleurs-bn-test": "outputs/large-v3-turbo__fleurs-bn-test.jsonl",
+        "bengali-loop-sample": "outputs/large-v3-turbo__bengali-loop-sample.jsonl"
+      },
+      "inference_modes": {
+        "cv-bn-test": "bounded-short",
+        "fleurs-bn-test": "bounded-short",
+        "bengali-loop-sample": "long-form-vad"
+      },
+      "training_audit": "unknown",
+      "train_manifests": [],
+      "pending_slices": {}
     },
     {
-      "name": "tugstugi whisper-medium (zero-shot)",
+      "name": "tugstugi whisper-medium (base)",
+      "model_id": "bengaliAI/tugstugi_bengaliai-asr_whisper-medium",
       "predictions": {
-        "cv-bn-test": "reports/predictions/tugstugi-medium__cv-bn-test.jsonl",
-        "fleurs-bn-test": "reports/predictions/tugstugi-medium__fleurs-bn-test.jsonl",
-        "bengali-loop-sample": "reports/predictions/tugstugi-medium__bengali-loop-sample.jsonl"
-      }
+        "cv-bn-test": "outputs/tugstugi-medium__cv-bn-test.jsonl",
+        "fleurs-bn-test": "outputs/tugstugi-medium__fleurs-bn-test.jsonl",
+        "bengali-loop-sample": "outputs/tugstugi-medium__bengali-loop-sample.jsonl"
+      },
+      "inference_modes": {
+        "cv-bn-test": "bounded-short",
+        "fleurs-bn-test": "bounded-short",
+        "bengali-loop-sample": "long-form-vad"
+      },
+      "training_audit": "unknown",
+      "train_manifests": [],
+      "pending_slices": {}
     }
   ]
 }

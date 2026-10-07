@@ -77,15 +77,27 @@ def test_is_code_switched():
 
 def _cs_manifest(domain):
     seg = Segment(
-        id="s0", audio="a.wav", text="আজকের Lecture এ Machine Learning",
-        duration_s=4.0, recording_id="r0",
+        id="s0",
+        audio="a.wav",
+        text="আজকের Lecture এ Machine Learning",
+        duration_s=4.0,
+        recording_id="r0",
     )
     seg2 = Segment(
-        id="s1", audio="a.wav", text="Database এ Query চালাও",
-        duration_s=3.0, recording_id="r1",
+        id="s1",
+        audio="a.wav",
+        text="Database এ Query চালাও",
+        duration_s=3.0,
+        recording_id="r1",
     )
-    return Manifest(name="m", source="mucs_slr104", split="test", domain=domain,
-                    version="v", segments=(seg, seg2))
+    return Manifest(
+        name="m",
+        source="mucs_slr104",
+        split="test",
+        domain=domain,
+        version="v",
+        segments=(seg, seg2),
+    )
 
 
 def test_code_switch_slice_scores_case_insensitively():

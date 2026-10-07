@@ -1,16 +1,9 @@
-"""Demo orchestration: transcribe + diarize + attribute → a readable transcript.
-
-This is what the public demo runs when a user uploads audio: the long-form
-transcriber and the diarizer (both injected behind their interfaces) produce a
-speaker-attributed transcript, formatted for a human to read. Injecting the
-pipeline and diarizer keeps this orchestration testable with fakes — no audio,
-no GPU — while the app wires the real Silero/faster-whisper/pyannote stack.
-"""
+"""Format transcripts with explicit timing and dominant-speaker limits."""
 
 from __future__ import annotations
 
 from shono.diarize.attribute import attribute_speakers
-from shono.diarize.diarizer import Diarizer
+from shono.diarize.diarizer import Diarizer, vad_intersection
 from shono.transcribe.pipeline import LongFormTranscriber
 from shono.transcribe.types import Transcript
 
@@ -25,7 +18,7 @@ def transcribe_recording(
     result = pipeline.transcribe(audio_path, audio_duration_s)
     if diarizer is None:
         return result.transcript
-    speakers = diarizer.diarize(audio_path)
+    speakers = vad_intersection(diarizer.diarize(audio_path), list(result.speech))
     return attribute_speakers(result.transcript, speakers)
 
 
@@ -56,8 +49,14 @@ def format_transcript(transcript: Transcript) -> str:
         if not buffer:
             cur_speaker = seg.speaker
             cur_start = seg.start_s
+            prev_end = seg.end_s
         buffer.append(seg.text)
-        prev_end = seg.end_s
+        prev_end = max(prev_end, seg.end_s)
     if buffer:
         flush(prev_end)
-    return "\n\n".join(lines)
+    notes = list(transcript.warnings)
+    if any(s.timing_precision == "chunk" for s in transcript.segments):
+        notes.append("Some timings describe complete chunks; word timings were unavailable.")
+    if any(s.speaker_precision == "dominant-segment" for s in transcript.segments):
+        notes.append("Speaker labels show the dominant speaker per transcript segment.")
+    return "\n\n".join([*(f"Note: {note}" for note in dict.fromkeys(notes)), *lines])

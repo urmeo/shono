@@ -1,44 +1,41 @@
-"""Plan chunk windows from VAD speech regions — cut at silence, never mid-word.
-
-Whisper degrades and hallucinates on inputs longer than its ~30 s window and on
-chunks that begin or end mid-word. The fix is to cut on the *silence* between
-speech regions: greedily pack consecutive speech segments into a window until the
-next one would exceed ``max_chunk_s``, then start a new window at that silence
-gap. A single speech region longer than ``max_chunk_s`` (rare — someone talking
-without pause) has no silence to cut on, so it is split on a forced grid, which
-this module reports honestly rather than hiding.
-
-Pure geometry over timestamps — no audio — so every edge is unit-tested.
-"""
+"""Plan bounded VAD windows, including padding in the maximum duration."""
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
 
+from shono.transcribe._validation import count, finite_real, time_bounds
 from shono.transcribe.types import SpeechSegment
 
 
 @dataclass(frozen=True)
 class Chunk:
-    """A window to transcribe: ``[start_s, end_s]`` in the full recording."""
-
     start_s: float
     end_s: float
-    forced_split: bool = False  # True when cut mid-region for lack of a silence gap
+    forced_split: bool = False
+
+    def __post_init__(self) -> None:
+        time_bounds(self.start_s, self.end_s, "chunk")
+        if not isinstance(self.forced_split, bool):
+            raise ValueError("forced_split must be boolean")
 
     @property
     def duration_s(self) -> float:
         return self.end_s - self.start_s
 
 
-def _split_long_segment(seg: SpeechSegment, max_chunk_s: float) -> list[Chunk]:
-    n = math.ceil(seg.duration_s / max_chunk_s)
-    step = seg.duration_s / n
-    return [
-        Chunk(seg.start_s + i * step, seg.start_s + (i + 1) * step, forced_split=True)
-        for i in range(n)
-    ]
+def union_speech(segments: list[SpeechSegment]) -> list[SpeechSegment]:
+    """Return ordered, disjoint speech intervals without counting overlaps twice."""
+    if any(not isinstance(s, SpeechSegment) for s in segments):
+        raise ValueError("speech regions must contain SpeechSegment values")
+    merged: list[SpeechSegment] = []
+    for seg in sorted(segments, key=lambda s: (s.start_s, s.end_s)):
+        if merged and seg.start_s <= merged[-1].end_s:
+            merged[-1] = SpeechSegment(merged[-1].start_s, max(merged[-1].end_s, seg.end_s))
+        else:
+            merged.append(seg)
+    return merged
 
 
 def plan_chunks(
@@ -46,42 +43,60 @@ def plan_chunks(
     *,
     max_chunk_s: float = 28.0,
     pad_s: float = 0.0,
+    audio_duration_s: float | None = None,
+    max_chunks: int = 100_000,
 ) -> list[Chunk]:
-    """Group speech ``segments`` into chunk windows no longer than ``max_chunk_s``.
-
-    Windows are cut at the silence between speech regions. A region longer than
-    ``max_chunk_s`` on its own is split on an even grid and each piece is flagged
-    ``forced_split`` (a hallucination-risk boundary the caller may treat with
-    care). ``pad_s`` extends each window slightly past the speech to avoid
-    clipping onsets/offsets. ``segments`` need not be sorted.
-    """
-    if max_chunk_s <= 0:
-        raise ValueError(f"max_chunk_s must be > 0, got {max_chunk_s}")
-    ordered = sorted(segments, key=lambda s: s.start_s)
+    """Pack speech into windows; long regions require flagged grid splits."""
+    maximum = finite_real(max_chunk_s, "max_chunk_s", minimum=0)
+    padding = finite_real(pad_s, "pad_s", minimum=0)
+    count(max_chunks, "max_chunks")
+    core = maximum - 2 * padding
+    if not math.isfinite(core) or core <= 0:
+        raise ValueError("need 0 <= 2 * pad_s < max_chunk_s")
+    duration = None
+    if audio_duration_s is not None:
+        duration = finite_real(audio_duration_s, "audio_duration_s", minimum=0)
+        if duration <= 0:
+            raise ValueError("audio_duration_s must be > 0")
+    ordered = union_speech(segments)
+    if duration is not None and any(s.end_s > duration + 1e-6 for s in ordered):
+        raise ValueError("VAD speech regions extend beyond the recording")
     chunks: list[Chunk] = []
-    cur_start: float | None = None
-    cur_end: float | None = None
+    current: tuple[float, float] | None = None
+
+    def append(start: float, end: float, forced: bool = False) -> None:
+        if len(chunks) >= max_chunks:
+            raise ValueError("planned chunk count exceeds max_chunks")
+        lo = max(0.0, start - padding)
+        hi = end + padding
+        if duration is not None:
+            hi = min(hi, duration)
+        chunk = Chunk(lo, hi, forced)
+        if chunk.duration_s > maximum + 1e-6:
+            raise ValueError("chunk geometry cannot represent the requested maximum")
+        chunks.append(chunk)
 
     for seg in ordered:
-        if seg.duration_s > max_chunk_s:
-            if cur_start is not None:
-                chunks.append(Chunk(cur_start, cur_end))
-                cur_start = cur_end = None
-            chunks.extend(_split_long_segment(seg, max_chunk_s))
-            continue
-        if cur_start is None:
-            cur_start, cur_end = seg.start_s, seg.end_s
-        elif seg.end_s - cur_start <= max_chunk_s:
-            cur_end = max(cur_end, seg.end_s)  # never shrink on a nested segment
+        if seg.duration_s > core:
+            if current is not None:
+                append(*current)
+                current = None
+            ratio = seg.duration_s / core
+            if not math.isfinite(ratio) or ratio > max_chunks - len(chunks):
+                raise ValueError("planned chunk count exceeds max_chunks")
+            n = math.ceil(ratio)
+            step = seg.duration_s / n
+            for i in range(n):
+                lo = seg.start_s + i * step
+                hi = seg.end_s if i == n - 1 else seg.start_s + (i + 1) * step
+                append(lo, hi, True)
+        elif current is None:
+            current = (seg.start_s, seg.end_s)
+        elif seg.end_s - current[0] <= core:
+            current = (current[0], max(current[1], seg.end_s))
         else:
-            chunks.append(Chunk(cur_start, cur_end))
-            cur_start, cur_end = seg.start_s, seg.end_s
-
-    if cur_start is not None:
-        chunks.append(Chunk(cur_start, cur_end))
-
-    if pad_s:
-        chunks = [
-            Chunk(max(0.0, c.start_s - pad_s), c.end_s + pad_s, c.forced_split) for c in chunks
-        ]
+            append(*current)
+            current = (seg.start_s, seg.end_s)
+    if current is not None:
+        append(*current)
     return chunks

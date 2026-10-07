@@ -1,14 +1,10 @@
-"""Commercial ASR API benchmark: one interface, a $0-spend guard, real adapters.
-
-The protocol, budget guard, and manifest runner are pure and imported eagerly; the
-Google Chirp and Deepgram adapters keep their SDK imports inside their methods, so
-this package loads without any cloud client installed.
-"""
+"""Lazy commercial adapters and declared-duration workload guards."""
 
 from shono.api.base import (
     ApiTranscriber,
     BudgetError,
     BudgetGuard,
+    preflight_manifest,
     run_over_manifest,
 )
 from shono.api.deepgram import DeepgramTranscriber
@@ -20,5 +16,6 @@ __all__ = [
     "BudgetGuard",
     "DeepgramTranscriber",
     "GoogleChirpTranscriber",
+    "preflight_manifest",
     "run_over_manifest",
 ]

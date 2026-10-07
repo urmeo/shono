@@ -1,25 +1,22 @@
-"""Speaker-labelled time segments — the currency of diarization."""
+"""Validated recording-local speaker intervals."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from shono.transcribe._validation import time_bounds
+
 
 @dataclass(frozen=True)
 class SpeakerSegment:
-    """A span of speech attributed to one speaker, in seconds from the recording start."""
-
     start_s: float
     end_s: float
     speaker: str
 
     def __post_init__(self) -> None:
-        if self.end_s <= self.start_s:
-            raise ValueError(
-                f"speaker segment must have end > start, got {self.start_s}..{self.end_s}"
-            )
-        if not self.speaker:
-            raise ValueError("speaker label must be non-empty")
+        time_bounds(self.start_s, self.end_s, "speaker segment")
+        if not isinstance(self.speaker, str) or not self.speaker.strip():
+            raise ValueError("speaker label must be non-empty text")
 
     @property
     def duration_s(self) -> float:

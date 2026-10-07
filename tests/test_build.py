@@ -30,8 +30,13 @@ def test_build_manifest_from_rows_uses_injected_duration():
         {"id": "b", "audio": "b.wav", "text": "তুমি কেমন", "duration_s": 5.0},
     ]
     m = build_manifest(
-        name="m", source="openslr_slr53", split="train", domain="read",
-        version="v", rows=rows, duration_of=_fake_duration,
+        name="m",
+        source="openslr_slr53",
+        split="train",
+        domain="read",
+        version="v",
+        rows=rows,
+        duration_of=_fake_duration,
     )
     assert len(m.segments) == 2
     assert m.segments[0].duration_s == 3.0  # from the injected duration_of
@@ -45,16 +50,25 @@ def test_build_manifest_skips_empty_text_rows():
         {"id": "b", "audio": "b.wav", "text": "   "},  # unscorable → skipped
     ]
     m = build_manifest(
-        name="m", source="openslr_slr53", split="train", domain="read",
-        version="v", rows=rows, duration_of=_fake_duration,
+        name="m",
+        source="openslr_slr53",
+        split="train",
+        domain="read",
+        version="v",
+        rows=rows,
+        duration_of=_fake_duration,
     )
     assert [s.id for s in m.segments] == ["a"]
 
 
 def test_build_manifest_validates_against_license_floor():
     m = build_manifest(
-        name="m", source="common_voice_bn", split="test", domain="read",
-        version="v", rows=[{"id": "a", "audio": "a.wav", "text": "কথা"}],
+        name="m",
+        source="common_voice_bn",
+        split="test",
+        domain="read",
+        version="v",
+        rows=[{"id": "a", "audio": "a.wav", "text": "কথা"}],
         duration_of=_fake_duration,
     )
     m.validate_against(LicenseRegistry.load(_LICENSES))  # source registered → no raise
@@ -73,7 +87,10 @@ def test_from_common_voice_tsv(tmp_path):
         encoding="utf-8",
     )
     m = from_common_voice_tsv(
-        tsv, split="test", name="cv-bn-test", version="cv-26",
+        tsv,
+        split="test",
+        name="cv-bn-test",
+        version="cv-26",
         duration_of=_fake_duration,
     )
     assert len(m.segments) == 2
@@ -90,7 +107,10 @@ def test_from_common_voice_uses_durations_tsv(tmp_path):
         "clip\tduration[ms]\nclip.mp3\t4200\n", encoding="utf-8"
     )
     m = from_common_voice_tsv(
-        tmp_path / "test.tsv", split="test", name="cv", version="v",
+        tmp_path / "test.tsv",
+        split="test",
+        name="cv",
+        version="v",
         durations_tsv=tmp_path / "clip_durations.tsv",
     )
     assert m.segments[0].duration_s == pytest.approx(4.2)  # from the durations file
@@ -101,19 +121,27 @@ def test_from_common_voice_uses_durations_tsv(tmp_path):
 
 def test_collapse_to_recordings_joins_segments_per_recording():
     segs = (
-        Segment(id="r1-1", audio="r1.wav", text="দ্বিতীয়", duration_s=2.0,
-                recording_id="r1", start_s=4.0),
-        Segment(id="r1-0", audio="r1.wav", text="প্রথম", duration_s=2.0,
-                recording_id="r1", start_s=0.0),
+        Segment(
+            id="r1-1", audio="r1.wav", text="দ্বিতীয়", duration_s=2.0, recording_id="r1", start_s=4.0
+        ),
+        Segment(
+            id="r1-0", audio="r1.wav", text="প্রথম", duration_s=2.0, recording_id="r1", start_s=0.0
+        ),
         Segment(id="r2-0", audio="r2.wav", text="আলাদা", duration_s=3.0, recording_id="r2"),
     )
-    m = Manifest(name="loop", source="bengali_loop", split="test", domain="long-form",
-                 version="v", segments=segs)
+    m = Manifest(
+        name="loop",
+        source="bengali_loop",
+        split="test",
+        domain="long-form",
+        version="v",
+        segments=segs,
+    )
     collapsed = collapse_to_recordings(m)
     assert len(collapsed.segments) == 2  # one entry per recording
     r1 = next(s for s in collapsed.segments if s.recording_id == "r1")
     assert r1.text == "প্রথম দ্বিতীয়"  # joined in start-time order
-    assert r1.duration_s == 4.0  # summed
+    assert r1.duration_s == 6.0  # annotated timeline includes the silence gap
     assert r1.id == "r1"
 
 

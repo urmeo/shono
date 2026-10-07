@@ -1,11 +1,4 @@
-"""Blockwise bootstrap confidence intervals for WER/CER.
-
-Segments from the same recording are correlated, so resampling individual
-segments underestimates variance (Liu et al., Interspeech 2020). This module
-resamples whole *blocks* — one block per recording — with replacement, and
-reports nearest-rank percentile intervals. Every per-slice number in a report
-carries one of these intervals; a bare point estimate is not a result.
-"""
+"""Nearest-rank bootstrap intervals over recording or speaker blocks."""
 
 import math
 import random
@@ -33,6 +26,18 @@ class BootstrapCI:
     samples: tuple[float, ...] | None = None
 
 
+def validate_bootstrap_settings(n_resamples: int, confidence: float, seed: int) -> None:
+    """Validate the bootstrap protocol before any work."""
+    if isinstance(n_resamples, bool) or not isinstance(n_resamples, int) or n_resamples < 100:
+        raise ValueError("n_resamples must be an integer >= 100")
+    if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
+        raise ValueError("confidence must be a finite real number in (0, 1)")
+    if not 0 < confidence < 1 or not math.isfinite(confidence):
+        raise ValueError("confidence must be a finite real number in (0, 1)")
+    if isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed < 2**32:
+        raise ValueError("seed must be an integer in [0, 2**32)")
+
+
 def _nearest_rank(sorted_samples: list[float], q: float) -> float:
     rank = max(1, math.ceil(q * len(sorted_samples)))
     return sorted_samples[rank - 1]
@@ -46,26 +51,23 @@ def blockwise_bootstrap_ci(
     seed: int = 0,
     keep_samples: bool = False,
 ) -> BootstrapCI:
-    """Compute ``metric`` with a blockwise-bootstrap CI.
+    """Resample (block_id, reference, hypothesis) triples by whole block.
 
-    ``records`` are ``(block_id, reference, hypothesis)`` triples, where
-    ``block_id`` identifies the recording (or speaker) a segment came from.
-    Strings are scored under the raw contract of :mod:`shono.eval.score`
-    (whitespace-canonicalized, nothing else) — normalize upstream if
-    normalized scores are wanted, so raw and normalized runs share one
-    code path.
-    ``keep_samples=True`` returns every resampled metric value for
-    inspection or plotting.
+    Strings follow the raw whitespace-only scoring contract; normalize upstream.
+    keep_samples=True retains the bootstrap draws.
     """
-    if metric not in _METRICS:
+    validate_bootstrap_settings(n_resamples, confidence, seed)
+    if not isinstance(metric, str) or metric not in _METRICS:
         raise ValueError(f"unknown metric {metric!r}; expected one of {sorted(_METRICS)}")
-    if not 0.0 < confidence < 1.0:
-        raise ValueError(f"confidence must be in (0, 1), got {confidence}")
-    if n_resamples < _MIN_RESAMPLES:
-        raise ValueError(
-            f"n_resamples must be >= {_MIN_RESAMPLES}, got {n_resamples}; "
-            "percentile intervals from fewer resamples are noise"
-        )
+    if not isinstance(keep_samples, bool):
+        raise ValueError("keep_samples must be boolean")
+    if not isinstance(records, (list, tuple)) or not records:
+        raise ValueError("records must be a nonempty sequence of triples")
+    for item in records:
+        if not isinstance(item, (list, tuple)) or len(item) != 3:
+            raise ValueError("each record must be a (block_id, reference, hypothesis) triple")
+        if any(not isinstance(value, str) for value in item) or not item[0].strip():
+            raise ValueError("record values must be strings with a nonempty block_id")
 
     blocks: dict[str, list[tuple[str, str]]] = defaultdict(list)
     for block_id, reference, hypothesis in records:

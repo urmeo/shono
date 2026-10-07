@@ -1,12 +1,4 @@
-"""Merge per-chunk transcriptions into one globally-timed transcript.
-
-Each chunk was decoded in isolation, so its word timings are chunk-local (0 = the
-chunk's window start). Merging means two things: shift every word to global
-recording time, and drop the duplicate words where padded/overlapping windows
-cover the same speech twice. Word-level timing makes the dedup exact; when a
-chunk carries no word timings, the merger falls back to its window times and
-skips any chunk fully covered by an earlier one.
-"""
+"""Merge timed words and retain ambiguous chunk text with explicit warnings."""
 
 from __future__ import annotations
 
@@ -16,43 +8,55 @@ _EPS = 1e-6
 
 
 def _global_words(chunk: ChunkTranscription) -> list[Word]:
-    off = chunk.window_start_s
-    return [Word(w.start_s + off, w.end_s + off, w.word, w.probability) for w in chunk.words]
+    offset = chunk.window_start_s
+    return [Word(w.start_s + offset, w.end_s + offset, w.word, w.probability) for w in chunk.words]
 
 
 def merge_transcriptions(chunks: list[ChunkTranscription]) -> Transcript:
-    """Merge chunk transcriptions (in any order) into one :class:`Transcript`.
-
-    Overlapping windows are de-duplicated: a word already covered by an earlier
-    chunk (its global start falls before the running coverage boundary) is
-    dropped, so padded boundaries do not double-print words.
-    """
+    """Remove fully covered timed words; untimed partial overlaps remain approximate."""
     ordered = sorted(chunks, key=lambda c: c.window_start_s)
     segments: list[TranscriptSegment] = []
+    warnings: list[str] = []
     covered_until = float("-inf")
-
     for chunk in ordered:
         if chunk.words:
-            fresh = [w for w in _global_words(chunk) if w.start_s >= covered_until - _EPS]
+            fresh = [
+                w
+                for w in _global_words(chunk)
+                if w.word.strip()
+                and (w.end_s > covered_until + _EPS or w.start_s >= covered_until - _EPS)
+            ]
             if not fresh:
                 continue
-            text = " ".join(w.word.strip() for w in fresh if w.word.strip())
+            if fresh[0].start_s < covered_until - _EPS:
+                warnings.append("Overlapping word boundaries may retain a repeated word.")
+            segments.append(
+                TranscriptSegment(
+                    fresh[0].start_s,
+                    max(w.end_s for w in fresh),
+                    " ".join(w.word.strip() for w in fresh),
+                    timing_precision="word",
+                )
+            )
+            covered_until = max(covered_until, max(w.end_s for w in fresh))
+        else:
+            text = chunk.text.strip()
             if not text:
                 continue
-            segments.append(TranscriptSegment(fresh[0].start_s, fresh[-1].end_s, text))
-            covered_until = max(covered_until, fresh[-1].end_s)
-        else:
-            # No word timings: dedup by window start, consistent with the word path.
-            # A chunk that begins inside already-covered time is dropped rather than
-            # re-emitted — its text cannot be trimmed without word timings, and
-            # dropping is honest where duplicating would fabricate a repeat. The
-            # transcriber supplies word timings in practice, so this is a fallback.
-            if chunk.window_start_s < covered_until - _EPS:
-                covered_until = max(covered_until, chunk.window_end_s)
+            if chunk.window_end_s <= covered_until + _EPS:
                 continue
-            text = chunk.text.strip()
+            if chunk.window_start_s < covered_until - _EPS:
+                warnings.append("Overlapping chunk text has no word timings; repeats may remain.")
+            segments.append(
+                TranscriptSegment(
+                    chunk.window_start_s,
+                    chunk.window_end_s,
+                    text,
+                    timing_precision="chunk",
+                )
+            )
             covered_until = max(covered_until, chunk.window_end_s)
-            if text:
-                segments.append(TranscriptSegment(chunk.window_start_s, chunk.window_end_s, text))
-
-    return Transcript(segments=tuple(segments))
+    return Transcript(
+        tuple(sorted(segments, key=lambda s: (s.start_s, s.end_s))),
+        tuple(dict.fromkeys(warnings)),
+    )

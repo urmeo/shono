@@ -99,8 +99,7 @@ def test_empty_reference_rejected():
 def test_der_is_nan_when_reference_fully_collar_excluded():
     import math
 
-    # A 0.2 s reference vanishes inside the 0.25 s collar, but the hypothesis has a
-    # 3 s false alarm outside it — DER is undefined, must be NaN, never a hiding 0.0.
+    # Zero scorable reference time makes DER undefined despite false alarms.
     result = der([_s(5.0, 5.2, "A")], [_s(0.0, 3.0, "B")], DERConfig(collar_s=0.25))
     assert math.isnan(result.der)
     assert result.false_alarm_s == pytest.approx(3.0)
@@ -180,12 +179,11 @@ def test_load_rttm_parses_speaker_turns(tmp_path):
 
 
 def test_render_der_report_states_protocol_and_components():
-    result = corpus_der([([_s(0, 10, "A")], [_s(0, 5, "A")])], DERConfig(collar_s=0.0))
-    ci = der_bootstrap_ci(
-        [([_s(0, 10, "A")], [_s(0, 5, "A")]), ([_s(0, 10, "A")], [_s(0, 10, "A")])],
-        DERConfig(collar_s=0.0), n_resamples=100,
-    )
-    report = render_der_report([("shono", result, ci)], DERConfig(collar_s=0.25))
-    assert "collar 0.25" in report  # protocol stated
-    assert "| shono |" in report  # the system row
-    assert "Missed" in report  # components broken out
+    config = DERConfig(collar_s=0.25)
+    recordings = [([_s(0, 10, "A")], [_s(0, 5, "A")]), ([_s(0, 10, "A")], [_s(0, 10, "A")])]
+    result = corpus_der(recordings, config)
+    ci = der_bootstrap_ci(recordings, config, n_resamples=100)
+    report = render_der_report([("shono", result, ci)], config)
+    assert "collar 0.25" in report
+    assert "| shono |" in report
+    assert "Missed" in report

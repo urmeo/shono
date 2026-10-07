@@ -78,3 +78,43 @@ def test_unknown_metric_raises():
 def test_bad_confidence_raises():
     with pytest.raises(ValueError, match="confidence"):
         blockwise_bootstrap_ci(_RECORDS, confidence=1.5)
+
+
+@pytest.mark.parametrize("confidence", [True, False, float("nan"), float("inf"), 0, 1, "0.95", 1j])
+def test_confidence_must_be_real_finite_nonbool(confidence):
+    with pytest.raises(ValueError, match="confidence"):
+        blockwise_bootstrap_ci(_RECORDS, confidence=confidence)
+
+
+@pytest.mark.parametrize("count", [True, False, 100.5, "100", float("inf"), None])
+def test_resample_count_must_be_integer_nonbool(count):
+    with pytest.raises(ValueError, match="n_resamples"):
+        blockwise_bootstrap_ci(_RECORDS, n_resamples=count)
+
+
+@pytest.mark.parametrize("seed", [True, -1, 2**32, 0.5, "1", None])
+def test_seed_contract(seed):
+    with pytest.raises(ValueError, match="seed"):
+        blockwise_bootstrap_ci(_RECORDS, seed=seed)
+
+
+@pytest.mark.parametrize(
+    "records",
+    [
+        None,
+        "abc",
+        [],
+        [("r", "text")],
+        [(1, "text", "hyp")],
+        [("", "text", "hyp")],
+        [("r", "text", None)],
+    ],
+)
+def test_input_triples_are_validated(records):
+    with pytest.raises(ValueError):
+        blockwise_bootstrap_ci(records)
+
+
+def test_keep_samples_must_be_boolean():
+    with pytest.raises(ValueError, match="keep_samples"):
+        blockwise_bootstrap_ci(_RECORDS, keep_samples="false")

@@ -1,31 +1,46 @@
-"""Generate a model card from an evaluation report — numbers come from data, not hands.
-
-The card quotes results *only* from a report produced by the frozen harness
-(``reports/*.json``): every metric is looked up from a scored cell, and anything
-not yet measured renders ``—``. It is impossible to state a number the harness did
-not produce, which is the whole point — a model card is where accuracy claims meet
-the world.
-"""
+"""Render reported scores with explicit training and weight-license metadata."""
 
 from __future__ import annotations
 
+import json
+import math
 from collections.abc import Mapping, Sequence
 
 
-def _our_cell(report: Mapping, system: str, slice_name: str) -> dict | None:
-    for cell in report.get("cells", []):
-        if cell["system"] == system and cell["slice"] == slice_name:
-            return cell
-    return None
+def _text(value: object, name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{name} must be a nonempty string; use 'unknown' when unresolved")
+    return value
 
 
-def _wer_str(cell: dict | None) -> str:
-    if not cell or cell.get("status") != "scored":
-        return "—"
-    wn = cell["wer_norm"]
-    if wn.get("lo") is None:
-        return f"{wn['point']:.1%}"
-    return f"{wn['point']:.1%} [{wn['lo']:.1%}, {wn['hi']:.1%}]"
+def _wer_str(cell: Mapping | None) -> str:
+    if not cell or cell.get("status") == "pending":
+        return "pending"
+    if cell.get("status") != "scored" or not isinstance(cell.get("wer_norm"), Mapping):
+        raise ValueError("invalid scored model-card cell")
+    metric = cell["wer_norm"]
+    for key in ("point", "lo", "hi"):
+        value = metric.get(key)
+        if key != "point" and value is None:
+            continue
+        try:
+            finite = math.isfinite(value) if isinstance(value, (int, float)) else False
+        except OverflowError:
+            finite = False
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not finite
+            or value < 0
+        ):
+            raise ValueError("WER values must be finite nonnegative numbers")
+    if (metric.get("lo") is None) != (metric.get("hi") is None):
+        raise ValueError("WER interval needs both bounds or neither")
+    if metric.get("lo") is None:
+        return f"{metric['point']:.1%}"
+    if metric["lo"] > metric["hi"]:
+        raise ValueError("WER interval bounds are reversed")
+    return f"{metric['point']:.1%} [{metric['lo']:.1%}, {metric['hi']:.1%}]"
 
 
 def render_model_card(
@@ -35,52 +50,103 @@ def render_model_card(
     system: str,
     base_model: str,
     license_spdx: str,
+    base_model_license: str,
+    training_status: str,
     repo_url: str,
     license_table: str = "",
     limitations: Sequence[str] = (),
 ) -> str:
-    """Render a Hugging Face model card for ``system`` from an evaluation ``report``."""
-    norm_v = report.get("normalizer_version", "—")
+    """Quote per-cell WER and policy; report scores do not establish training status."""
+    for name, value in (
+        ("model_id", model_id),
+        ("system", system),
+        ("base_model", base_model),
+        ("model-weight license", license_spdx),
+        ("base-weight license", base_model_license),
+        ("repo_url", repo_url),
+    ):
+        _text(value, name)
+    if not isinstance(training_status, str) or training_status not in {
+        "pending",
+        "trained",
+        "unknown",
+    }:
+        raise ValueError("training_status must be pending, trained or unknown")
+    if (
+        not isinstance(report, Mapping)
+        or not isinstance(report.get("slices"), list)
+        or not isinstance(report.get("cells"), list)
+    ):
+        raise ValueError("report must contain slices and cells arrays")
+    slices = report["slices"]
+    if any(not isinstance(name, str) or not name for name in slices) or len(set(slices)) != len(
+        slices
+    ):
+        raise ValueError("report slice names must be unique strings")
+    cells = {}
+    for cell in report["cells"]:
+        if (
+            not isinstance(cell, Mapping)
+            or not isinstance(cell.get("system"), str)
+            or cell.get("slice") not in slices
+        ):
+            raise ValueError("invalid model-card report cell")
+        key = cell["system"], cell["slice"]
+        if key in cells:
+            raise ValueError("duplicate model-card report cell")
+        cells[key] = cell
+    if not any(name == system for name, _ in cells):
+        raise ValueError(f"system {system!r} is absent from report")
+    if not isinstance(limitations, (tuple, list)) or any(
+        not isinstance(item, str) for item in limitations
+    ):
+        raise ValueError("limitations must be a sequence of strings")
     lines = [
         "---",
-        f"license: {license_spdx}",
+        f"license: {json.dumps(license_spdx)}",
         "language: bn",
         "pipeline_tag: automatic-speech-recognition",
-        f"base_model: {base_model}",
+        f"base_model: {json.dumps(base_model)}",
         "---",
         "",
         f"# {model_id}",
         "",
-        f"Bengali speech recognition fine-tuned from `{base_model}`, built for real-world "
-        "audio: long-form lectures and podcasts, speaker diarization, and Bangla-English "
-        "code-switching. Part of [Shono]({repo_url}).".format(repo_url=repo_url),
+        f"System: `{system}`. Training status: **{training_status}**.",
+        f"Base weights: `{base_model}`. Base-weight license: **{base_model_license}**.",
+        f"Model-weight license: **{license_spdx}**. Code license: MIT.",
         "",
         "## Results",
         "",
-        f"Word error rate (lower is better), scored under the frozen Shono normalizer "
-        f"(v{norm_v}) with a 95% blockwise-bootstrap CI. `—` = not yet measured.",
+        "WER is quoted from the supplied report. Each row states its scoring policy; "
+        "pending has no measured score.",
         "",
-        "| Slice | WER (normalized, 95% CI) |",
-        "|---|---|",
+        "| Slice | WER (normalized, 95% CI when available) | Policy |",
+        "|---|---|---|",
     ]
-    for s in report.get("slices", []):
-        cell = _our_cell(report, system, s)
-        lines.append(f"| {s} | {_wer_str(cell)} |")
-    lines.append("")
-    lines.append(
-        f"Full per-slice comparison against the base model and commercial APIs, with the "
-        f"exact scoring script, lives in the [Shono repository]({repo_url})."
-    )
+    for name in slices:
+        cell = cells.get((system, name))
+        if cell is None:
+            raise ValueError(f"missing model-card cell for {system!r}/{name!r}")
+        if (
+            cell.get("status") == "scored"
+            and "fine-tuned" in system
+            and cell.get("leakage_audit", {}).get("status") != "reviewed"
+        ):
+            raise ValueError("scored fine-tuned cards require a reviewed training audit")
+        policy = cell.get("normalization_policy", "unknown")
+        version = cell.get("normalizer_version", "unknown")
+        lines.append(f"| {name} | {_wer_str(cell)} | {policy} v{version} |")
+    lines += ["", f"Protocol and inputs: [Shono]({repo_url})."]
     if limitations:
-        lines += ["", "## Limitations", ""]
-        lines += [f"- {item}" for item in limitations]
+        lines += ["", "## Limits", "", *[f"- {item}" for item in limitations]]
     if license_table:
-        lines += ["", "## Training data", "", license_table]
+        lines += ["", "## Declared data sources", "", license_table]
     lines += [
         "",
         "## License",
         "",
-        f"Model code: {license_spdx}. Training data and any base weights carry their own "
-        "licenses, recorded per source in the repository.",
+        "Repository code is MIT. Model weights, base weights and data "
+        "have separate stated licenses.",
+        "",
     ]
-    return "\n".join(lines) + "\n"
+    return "\n".join(lines)

@@ -1,10 +1,4 @@
-"""Long-form transcription: VAD chunking, hallucination guards, timestamp merging.
-
-The chunk planner, hallucination filter, merger, and pipeline orchestration are
-pure and imported eagerly; the Silero-VAD / faster-whisper implementations and the
-CTranslate2 converter keep their heavy imports inside functions, so this package
-loads without torch or a GPU.
-"""
+"""Bounded transcription helpers with lazy optional model runtimes."""
 
 from shono.transcribe.chunking import Chunk, plan_chunks
 from shono.transcribe.hallucination import (

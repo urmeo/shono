@@ -1,20 +1,4 @@
-"""Diarization Error Rate under one explicit protocol — self-contained, no scipy.
-
-DER = (missed speech + false alarm + speaker confusion) / total reference speech.
-A DER number is meaningless without its protocol, so this scorer states both
-knobs and refuses to hide them:
-
-    * **collar** — a forgiveness window around every *reference* boundary is
-      excluded from scoring (annotators disagree on exact boundaries by tenths of
-      a second). Default 0.25 s each side, the NIST/DIHARD convention.
-    * **skip_overlap** — whether regions where more than one reference speaker is
-      active are scored. Default False (overlap *is* scored — the honest, harder
-      choice).
-
-Confusion depends on mapping hypothesis speaker labels to reference labels
-optimally; that is a max-weight bipartite matching, solved here with the
-Hungarian algorithm over the ref×hyp co-occurrence matrix.
-"""
+"""Reference-time weighted DER with per-recording optimal speaker assignment."""
 
 from __future__ import annotations
 
@@ -23,6 +7,7 @@ import random
 from dataclasses import dataclass
 
 from shono.diarize.types import SpeakerSegment
+from shono.transcribe._validation import count, finite_real, finite_sum
 
 
 @dataclass(frozen=True)
@@ -33,8 +18,9 @@ class DERConfig:
     skip_overlap: bool = False
 
     def __post_init__(self) -> None:
-        if self.collar_s < 0:
-            raise ValueError(f"collar_s must be >= 0, got {self.collar_s}")
+        finite_real(self.collar_s, "collar_s", minimum=0)
+        if not isinstance(self.skip_overlap, bool):
+            raise ValueError("skip_overlap must be boolean")
 
 
 @dataclass(frozen=True)
@@ -47,6 +33,7 @@ class DERResult:
     confusion_s: float
     total_ref_s: float
     mapping: dict[str, str]  # hypothesis label -> reference label (optimal)
+    config: DERConfig | None = None
 
     def as_percent(self) -> float:
         return self.der * 100.0
@@ -113,7 +100,7 @@ def _max_weight_matching(refs: list[str], hyps: list[str], overlap: dict) -> dic
         for j in range(n):
             in_range = i < len(refs) and j < len(hyps)
             weight = overlap.get((refs[i], hyps[j]), 0.0) if in_range else 0.0
-            cost[i][j] = best - weight
+            cost[i][j] = (best - weight) / best if best else 0.0
     assignment = _min_cost_assignment(cost)
     mapping: dict[str, str] = {}
     for i, j in enumerate(assignment):
@@ -126,7 +113,7 @@ def _max_weight_matching(refs: list[str], hyps: list[str], overlap: dict) -> dic
 
 
 def _active(segments: list[SpeakerSegment], a: float, b: float) -> set[str]:
-    mid = (a + b) / 2.0
+    mid = a / 2.0 + b / 2.0
     return {s.speaker for s in segments if s.start_s <= mid < s.end_s}
 
 
@@ -139,11 +126,13 @@ def _no_score_boundaries(
     for s in reference:
         regions.append((s.start_s - collar_s, s.start_s + collar_s))
         regions.append((s.end_s - collar_s, s.end_s + collar_s))
+    if any(not math.isfinite(v) for region in regions for v in region):
+        raise ValueError("collar boundaries must be finite")
     return regions
 
 
 def _in_any(regions: list[tuple[float, float]], a: float, b: float) -> bool:
-    mid = (a + b) / 2.0
+    mid = a / 2.0 + b / 2.0
     return any(lo <= mid < hi for lo, hi in regions)
 
 
@@ -156,6 +145,8 @@ def der(
     cfg = config or DERConfig()
     if not reference:
         raise ValueError("cannot compute DER against an empty reference")
+    if any(not isinstance(s, SpeakerSegment) for s in (*reference, *hypothesis)):
+        raise ValueError("DER inputs must contain speaker segments")
 
     refs = sorted({s.speaker for s in reference})
     hyps = sorted({s.speaker for s in hypothesis})
@@ -182,6 +173,7 @@ def der(
         for r in r_active:
             for h in h_active:
                 overlap[(r, h)] = overlap.get((r, h), 0.0) + d
+                finite_real(overlap[(r, h)], "speaker overlap", minimum=0)
 
     mapping = _max_weight_matching(refs, hyps, overlap)
 
@@ -200,16 +192,15 @@ def der(
         missed += d * max(0, n_ref - n_sys)
         false_alarm += d * max(0, n_sys - n_ref)
         confusion += d * (min(n_ref, n_sys) - n_correct)
+        for value in (total_ref, missed, false_alarm, confusion):
+            finite_real(value, "DER component", minimum=0)
 
     total_error = missed + false_alarm + confusion
+    finite_real(total_error, "total DER error", minimum=0)
     if total_ref > 0:
-        der_value = total_error / total_ref
-    elif total_error > 0:
-        # Error with no scorable reference (all of it collar-excluded) is undefined —
-        # never report it as a perfect 0.0, which would hide the error.
-        der_value = float("nan")
+        der_value = finite_real(total_error / total_ref, "DER", minimum=0)
     else:
-        der_value = 0.0
+        der_value = float("nan")
     return DERResult(
         der=der_value,
         missed_s=missed,
@@ -217,6 +208,7 @@ def der(
         confusion_s=confusion,
         total_ref_s=total_ref,
         mapping=mapping,
+        config=cfg,
     )
 
 
@@ -226,13 +218,7 @@ Recording = tuple[list[SpeakerSegment], list[SpeakerSegment]]
 
 
 def corpus_der(recordings: list[Recording], config: DERConfig | None = None) -> DERResult:
-    """Aggregate DER across recordings: total error over total reference speech.
-
-    Each recording is a ``(reference, hypothesis)`` pair; speaker labels are mapped
-    optimally *within* each recording (labels are not shared across recordings), and
-    the error components are summed. This is how DER is reported on a multi-recording
-    eval set — never a mean of per-recording rates, which would misweight short files.
-    """
+    """Sum errors and reference time with recording-local speaker mappings."""
     if not recordings:
         raise ValueError("cannot compute corpus DER over zero recordings")
     missed = false_alarm = confusion = total_ref = 0.0
@@ -242,20 +228,26 @@ def corpus_der(recordings: list[Recording], config: DERConfig | None = None) -> 
         false_alarm += r.false_alarm_s
         confusion += r.confusion_s
         total_ref += r.total_ref_s
+        for value in (total_ref, missed, false_alarm, confusion):
+            finite_real(value, "corpus DER component", minimum=0)
     total_error = missed + false_alarm + confusion
+    finite_real(total_error, "total corpus DER error", minimum=0)
     return DERResult(
-        der=total_error / total_ref if total_ref > 0 else 0.0,
+        der=finite_real(total_error / total_ref, "corpus DER", minimum=0)
+        if total_ref > 0
+        else float("nan"),
         missed_s=missed,
         false_alarm_s=false_alarm,
         confusion_s=confusion,
         total_ref_s=total_ref,
         mapping={},  # per-recording mappings are not comparable across the corpus
+        config=config or DERConfig(),
     )
 
 
 @dataclass(frozen=True)
 class DERInterval:
-    """Corpus DER with a bootstrap CI over recordings — a DER without one is not a result."""
+    """A confidence interval resampling complete recordings."""
 
     point: float
     lower: float
@@ -263,6 +255,17 @@ class DERInterval:
     confidence: float
     n_resamples: int
     n_recordings: int
+    config: DERConfig | None = None
+
+    def __post_init__(self) -> None:
+        for value in (self.point, self.lower, self.upper):
+            finite_real(value, "DER interval", minimum=0)
+        if self.lower > self.upper:
+            raise ValueError("DER interval lower bound exceeds upper bound")
+        if not 0 < finite_real(self.confidence, "confidence") < 1:
+            raise ValueError("confidence must be in (0, 1)")
+        count(self.n_resamples, "n_resamples", minimum=100)
+        count(self.n_recordings, "n_recordings", minimum=2)
 
 
 def der_bootstrap_ci(
@@ -274,18 +277,31 @@ def der_bootstrap_ci(
     seed: int = 0,
 ) -> DERInterval:
     """Blockwise bootstrap CI for corpus DER, resampling whole recordings."""
+    count(n_resamples, "n_resamples", minimum=100)
+    level = finite_real(confidence, "confidence")
+    if not 0 < level < 1:
+        raise ValueError("confidence must be in (0, 1)")
+    if isinstance(seed, bool) or not isinstance(seed, int):
+        raise ValueError("seed must be an integer")
     if len(recordings) < 2:
         raise ValueError(
             f"bootstrap needs >= 2 recordings, got {len(recordings)}; "
             "there is no between-recording variance to estimate from one file"
         )
+    individual = [der(reference, hypothesis, config) for reference, hypothesis in recordings]
+    if any(result.total_ref_s <= 0 for result in individual):
+        raise ValueError("bootstrap requires scorable reference time in every recording")
     point = corpus_der(recordings, config).der
     rng = random.Random(seed)
     n = len(recordings)
     samples: list[float] = []
     for _ in range(n_resamples):
-        resampled = [recordings[rng.randrange(n)] for _ in range(n)]
-        samples.append(corpus_der(resampled, config).der)
+        resampled = [individual[rng.randrange(n)] for _ in range(n)]
+        numerator = finite_sum(
+            (r.missed_s + r.false_alarm_s + r.confusion_s for r in resampled), "resampled errors"
+        )
+        denominator = finite_sum((r.total_ref_s for r in resampled), "resampled reference time")
+        samples.append(finite_real(numerator / denominator, "resampled DER", minimum=0))
     samples.sort()
     alpha = 1.0 - confidence
 
@@ -299,6 +315,7 @@ def der_bootstrap_ci(
         confidence=confidence,
         n_resamples=n_resamples,
         n_recordings=n,
+        config=config or DERConfig(),
     )
 
 
@@ -306,31 +323,36 @@ def render_der_report(
     rows: list[tuple[str, DERResult, DERInterval | None]],
     config: DERConfig,
     *,
-    title: str = "Diarization — DER",
+    title: str = "Diarization | DER",
     generated: str = "",
 ) -> str:
-    """Render a Markdown DER report: one row per system, components broken out.
-
-    ``rows`` are ``(system, corpus_der_result, ci_or_None)``. The collar/overlap
-    protocol is stated in the header — a DER without it is not a result.
-    """
+    """Render the actual confidence level and reject mismatched result protocols."""
     overlap = "scored" if not config.skip_overlap else "excluded"
     lines = [
         f"# {title}",
         "",
         f"- **Protocol:** collar {config.collar_s:g} s per boundary side · overlap {overlap}",
-        f"- **Generated:** {generated or '—'}",
+        f"- **Generated:** {generated or 'n/a'}",
         "",
         "DER = (missed + false alarm + confusion) / reference speech; lower is better. "
         "Components are shown as a fraction of reference speech.",
         "",
-        "| System | DER (95% CI) | Missed | False alarm | Confusion |",
+        "| System | DER (CI when available) | Missed | False alarm | Confusion |",
         "|---|---|---|---|---|",
     ]
     for system, result, ci in rows:
-        ref = result.total_ref_s or 1.0
+        if result.config is not None and result.config != config:
+            raise ValueError("DER result protocol differs from report protocol")
+        if ci is not None and (ci.config is not None and ci.config != config):
+            raise ValueError("DER interval protocol differs from report protocol")
+        if ci is not None and not math.isclose(result.der, ci.point, rel_tol=1e-10, abs_tol=1e-12):
+            raise ValueError("DER interval point differs from the reported result")
+        if result.total_ref_s <= 0:
+            lines.append(f"| {system} | n/a | n/a | n/a | n/a |")
+            continue
+        ref = result.total_ref_s
         der_cell = (
-            f"{result.der:.1%} [{ci.lower:.1%}, {ci.upper:.1%}]"
+            f"{result.der:.1%} [{ci.lower:.1%}, {ci.upper:.1%}] ({ci.confidence * 100:g}% CI)"
             if ci is not None
             else f"{result.der:.1%}"
         )

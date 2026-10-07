@@ -1,32 +1,9 @@
-"""Frozen Bengali text normalization — the single pipeline behind every reported number.
+"""Frozen Bengali normalization, version 1.1.0.
 
-Order (fixed; changing it invalidates and regenerates all reports):
-    1. Unicode NFC composition.
-    2. bnunicodenormalizer, word by word, with ``allow_english=True``. This
-       step *repairs* malformed Bengali encodings (broken vowel forms like
-       অ + া  → আ, invalid conjunct glue, stray nukta/zero-width sequences)
-       and may therefore rewrite or drop codepoints inside a word; that is
-       its purpose. Words it cannot process pass through unchanged.
-    3. Punctuation and symbols — every codepoint in Unicode categories P*
-       (includes the danda '।') and S* (includes the taka sign '৳') — are
-       replaced with a space, never silently deleted, so 'ভাত,ডাল' splits
-       into two tokens exactly like 'ভাত, ডাল'. Zero-width characters
-       (ZWSP/ZWNJ/ZWJ/BOM) are removed.
-    4. Whitespace collapse to single ASCII spaces, stripped at both ends.
-    5. Digit canonicalization: Bengali digits ০-৯ map to ASCII 0-9, so
-       '২০২৬' and '2026' score as equal. Digits are never spelled out.
-
-Deliberate policy edges, so nobody discovers them in a report:
-    - Latin (code-switched) tokens keep their case: 'Bank' ≠ 'bank'.
-    - Currency/math symbols carry no lexical weight: '৳১০০' and '৳ ১০০'
-      both normalize to '100'; '২+২' becomes '2 2'.
-    - Bengali combining marks (matras, category Mn) and the visarga 'ঃ'
-      (category Mc) are never touched: generic normalizers that strip
-      Mark-category codepoints corrupt Bengali words and fabricate WER
-      improvements, which is exactly what this module exists to prevent.
-      OpenAI Whisper's BasicTextNormalizer must not be used anywhere in
-      this codebase.
-"""
+NFC -> word-level encoding repair -> punctuation/symbols replaced with spaces
+-> whitespace collapse -> Bengali digits mapped to ASCII. Zero-width marks
+are removed; Latin case is retained. No transliteration or digit-to-word rule.
+Changing this order requires a new version and regenerated scores."""
 
 import unicodedata
 

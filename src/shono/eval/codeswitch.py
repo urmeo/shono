@@ -1,21 +1,7 @@
-"""Script-normalized scoring for the Bengali-English code-switch slice.
+"""Code-switch normalization, version 1.0.0.
 
-No citable Bn-En code-switch WER convention exists, so Shono defines and documents
-its own — and keeps it honest. The policy is **within-script** normalization:
-
-    1. the frozen pipeline (:func:`shono.eval.normalize`) — Bengali repaired by
-       bnunicodenormalizer, punctuation/digits handled — applied as everywhere else;
-    2. plus case-folding of Latin (English) tokens, because English capitalization
-       is not a distinction a Bengali speech transcriber should be judged on.
-
-Implemented as ``normalize(text).casefold()``: ``casefold`` lowercases only cased
-scripts (Latin), leaving Bengali — which has no case — untouched.
-
-What this deliberately does **not** do: treat a word written in Latin as equal to
-its Bengali transliteration ("school" vs "স্কুল"). Reliable Bn-En transliteration
-equivalence would need a lexicon that does not exist; asserting it would fabricate
-matches. That limitation is stated in the code-switch report, not hidden.
-"""
+Apply Bengali normalization then Unicode casefold. Cross-script spellings
+remain distinct; school and স্কুল are not automatically equivalent."""
 
 from __future__ import annotations
 
@@ -61,6 +47,6 @@ def bengali_fraction(text: str) -> float:
 
 
 def is_code_switched(text: str) -> bool:
-    """True when the text mixes Bengali and Latin letters — a code-switch candidate."""
+    """True when the text mixes Bengali and Latin letters; a code-switch candidate."""
     counts = script_counts(text)
     return counts["bengali"] > 0 and counts["latin"] > 0

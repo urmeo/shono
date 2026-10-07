@@ -1,22 +1,13 @@
-"""Whisper over one audio window (HF transformers) — the baseline transcriber.
-
-Zero-shot large-v3/turbo, the tugstugi Bengali base, or our own fine-tune: each is
-just a Whisper checkpoint transcribing a window. This satisfies the same
-``transcribe(audio, start_s, duration_s) -> str`` protocol the API adapters use, so
-``shono.api.run_over_manifest`` turns any of them into a Predictions set — one
-prediction path for baselines, ours, and commercial APIs alike.
-
-torch/transformers/librosa are imported lazily; the model loads once on first use.
-"""
+"""Lazy HF Whisper inference over validated windows no longer than 30 seconds."""
 
 from __future__ import annotations
+
+from shono.data.audio_paths import validate_audio_window
 
 TARGET_SAMPLE_RATE = 16_000
 
 
 class ShortFormWhisperTranscriber:
-    """Transcribe an audio window with a Whisper checkpoint (per-segment, short-form)."""
-
     def __init__(
         self,
         model_id: str,
@@ -31,6 +22,20 @@ class ShortFormWhisperTranscriber:
         self.device = device
         self._model = None
         self._processor = None
+
+    def observed_runtime_context(self) -> dict:
+        """Return loaded decoding settings; missing revisions remain unknown."""
+        model = self._model
+        generation = getattr(model, "generation_config", None)
+        config = getattr(model, "config", None)
+        return {
+            "model_id": self.model_id,
+            "model_revision": getattr(config, "_commit_hash", None) or "unknown",
+            "device": self.device or "unknown",
+            "language": self.language,
+            "task": self.task,
+            "generation_config": generation.to_dict() if generation is not None else "unknown",
+        }
 
     def _load(self):
         if self._model is None:
@@ -47,14 +52,23 @@ class ShortFormWhisperTranscriber:
     def transcribe(
         self, audio_path: str, start_s: float | None = None, duration_s: float | None = None
     ) -> str:
+        actual = validate_audio_window(audio_path, start_s, duration_s)
+        if actual > 30:
+            raise ValueError("short-form Whisper requires audio windows <= 30 s")
         import librosa
+        import numpy as np
         import torch
 
-        model, processor = self._load()
         audio, _ = librosa.load(
-            audio_path, sr=TARGET_SAMPLE_RATE, offset=start_s or 0.0,
-            duration=duration_s, mono=True,
+            audio_path,
+            sr=TARGET_SAMPLE_RATE,
+            offset=start_s if start_s is not None else 0,
+            duration=actual,
+            mono=True,
         )
+        if len(audio) == 0 or not np.isfinite(audio).all():
+            raise ValueError("decoded audio must contain finite samples")
+        model, processor = self._load()
         features = processor(
             audio, sampling_rate=TARGET_SAMPLE_RATE, return_tensors="pt"
         ).input_features.to(self.device)

@@ -1,17 +1,10 @@
-"""Reject Whisper hallucinations by confidence signals — and say what was dropped.
-
-Whisper invents text on silence and loops on repetition. Three signals catch most
-of it: a low ``avg_logprob`` (the model is guessing), a high ``compression_ratio``
-(the output is repetitive — it gzip-compresses far too well), and a high
-``no_speech_prob`` (the chunk is probably silence). This filter drops chunks that
-trip the guards, but it *returns what it dropped* — a pipeline that silently
-deletes output is exactly the kind of dishonesty this project avoids.
-"""
+"""Filter chunks using declared confidence thresholds and retain drop reasons."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from shono.transcribe._validation import finite_real, probability
 from shono.transcribe.types import ChunkTranscription
 
 
@@ -23,8 +16,13 @@ class HallucinationConfig:
     max_compression_ratio: float = 2.4
     max_no_speech_prob: float = 0.6
 
+    def __post_init__(self) -> None:
+        finite_real(self.min_avg_logprob, "min_avg_logprob")
+        finite_real(self.max_compression_ratio, "max_compression_ratio", minimum=0)
+        probability(self.max_no_speech_prob, "max_no_speech_prob")
+
     def reasons(self, chunk: ChunkTranscription) -> tuple[str, ...]:
-        """Which guards (if any) this chunk trips — empty means it is kept."""
+        """Return threshold violations; an empty tuple means the chunk is kept."""
         out: list[str] = []
         if chunk.avg_logprob < self.min_avg_logprob:
             out.append(f"avg_logprob {chunk.avg_logprob:.2f} < {self.min_avg_logprob}")

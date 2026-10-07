@@ -1,17 +1,9 @@
-"""WER and CER scoring with explicit transforms — nothing happens implicitly.
+"""Corpus WER/CER: total edits divided by total reference units.
 
-jiwer's default transform quietly collapses repeated spaces and strips edges
-before scoring, and its word splitter breaks only on single spaces — so a
-newline in a hypothesis would count as an error. This module makes the raw
-contract explicit instead: **raw = whitespace-canonicalized only** (split on
-any whitespace, rejoin with single spaces — the one transform without which
-word scoring is undefined), then explicit jiwer transforms with no other
-munging: no case folding, no punctuation handling, nothing. "Normalized"
-scores additionally run both sides — always both, never one — through the
-frozen pipeline in :mod:`shono.eval.normalize`.
-"""
+Raw scoring canonicalizes whitespace only. Normalized scoring applies the
+same stated normalizer to references and hypotheses."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 import jiwer
@@ -28,6 +20,11 @@ def _canonicalize_whitespace(text: str) -> str:
 
 
 def _validate(references: list[str], hypotheses: list[str]) -> None:
+    for texts in (references, hypotheses):
+        if isinstance(texts, (str, bytes)) or not isinstance(texts, Sequence):
+            raise ValueError("references and hypotheses must be sequences of strings")
+        if any(not isinstance(text, str) for text in texts):
+            raise ValueError("references and hypotheses must contain only strings")
     if len(references) != len(hypotheses):
         raise ValueError(
             f"got {len(references)} references but {len(hypotheses)} hypotheses; "
@@ -39,7 +36,7 @@ def _validate(references: list[str], hypotheses: list[str]) -> None:
         if not ref.strip():
             raise ValueError(
                 f"reference {i} is empty or whitespace-only; "
-                "scoring against an empty reference is undefined — fix or drop the segment"
+                "scoring against an empty reference is undefined; fix or drop the segment"
             )
 
 

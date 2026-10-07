@@ -1,10 +1,4 @@
-"""Fine-tuning: the recipe, dataloading, checkpoint-resume, and the experiment record.
-
-The config, checkpoint logic, example selection, and experiment template are pure
-Python and imported eagerly. The torch/transformers training glue
-(:func:`run_training`, :func:`smoke_step`, :class:`WhisperFineTuneDataset`) keeps
-its heavy imports inside functions, so importing this package never needs a GPU.
-"""
+"""Training configuration, preparation and lazily imported runtime helpers."""
 
 from shono.train.checkpoint import (
     ResumeDecision,

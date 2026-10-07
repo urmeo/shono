@@ -1,26 +1,16 @@
-"""Dataset manifests — a slice of audio described without shipping the audio.
-
-A manifest is one named dataset split (``cv-bn-test``, ``bengali-loop-asr``,
-``mucs-slr104-cs-test`` …). It is metadata only: ids, audio *references*,
-durations, reference transcripts, and — crucially — the ``recording_id`` that
-groups segments into the blocks the bootstrap CI resamples. Audio itself never
-enters git (see ``.gitignore``); a manifest is what the ship repo can hold in
-place of terabytes of speech.
-
-On-disk format is JSON Lines: the **first line** is a header object
-``{"manifest": {...}}`` carrying the split-level metadata, and every following
-line is one :class:`Segment`. One self-describing file, streamable line by line,
-and readable with ``jq`` — the header is skippable by its distinct shape.
-"""
+"""Dataset metadata: one header and one JSON object per scored segment."""
 
 from __future__ import annotations
 
 import json
+import math
+import re
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 from shono.data.license import LicenseRegistry
+from shono.data.validation import audio_reference, json_object, real_number, text_value
 
 _SPLITS = frozenset({"train", "dev", "test"})
 _REQUIRED_HEADER = ("name", "source", "split", "domain", "version")
@@ -29,14 +19,8 @@ _REQUIRED_SEGMENT = ("id", "audio", "text", "duration_s", "recording_id")
 
 @dataclass(frozen=True)
 class Segment:
-    """One scored unit of audio, described without the audio.
-
-    ``recording_id`` is the bootstrap block a segment belongs to — the recording
-    (or speaker) it was cut from. For read-speech corpora where every clip is its
-    own recording, set it equal to ``id``. ``start_s``/``duration_s`` locate the
-    segment inside ``audio`` for long-form files; ``audio_sha256`` (optional)
-    powers audio-level leakage detection and integrity checks.
-    """
+    """One reference span. None start denotes a whole file; numeric start denotes an aligned
+    crop. recording_id is the bootstrap block, and audio_sha256 hashes complete file bytes."""
 
     id: str
     audio: str
@@ -49,21 +33,31 @@ class Segment:
     audio_sha256: str | None = None
 
     def __post_init__(self) -> None:
-        if not self.id:
-            raise ValueError("segment id must be non-empty")
-        if not self.recording_id:
-            raise ValueError(f"segment {self.id!r} has an empty recording_id")
-        if not self.text.strip():
+        text_value(self.id, "segment id")
+        text_value(self.recording_id, "recording_id")
+        audio_reference(self.audio)
+        if not isinstance(self.text, str) or not self.text.strip():
             raise ValueError(
-                f"segment {self.id!r} has empty reference text; "
-                "an empty reference is unscorable — fix or drop the segment"
+                f"segment {self.id!r} has empty reference text; fix or omit empty references"
             )
-        if self.duration_s <= 0:
-            raise ValueError(
-                f"segment {self.id!r} has non-positive duration_s={self.duration_s}"
-            )
-        if self.start_s is not None and self.start_s < 0:
-            raise ValueError(f"segment {self.id!r} has negative start_s={self.start_s}")
+        duration = real_number(self.duration_s, "duration_s")
+        if duration <= 0:
+            raise ValueError(f"segment {self.id!r} has non-positive duration_s={self.duration_s}")
+        if self.start_s is not None:
+            start = real_number(self.start_s, "start_s")
+            if start < 0:
+                raise ValueError(f"segment {self.id!r} has negative start_s={self.start_s}")
+            if not math.isfinite(start + duration):
+                raise ValueError("start_s + duration_s must be finite")
+        text_value(self.language, "language")
+        if self.speaker is not None:
+            text_value(self.speaker, "speaker")
+        if self.audio_sha256 is not None:
+            if not isinstance(self.audio_sha256, str) or not re.fullmatch(
+                r"[0-9a-fA-F]{64}", self.audio_sha256
+            ):
+                raise ValueError("audio_sha256 must be a 64-character hexadecimal file digest")
+            object.__setattr__(self, "audio_sha256", self.audio_sha256.lower())
 
 
 @dataclass(frozen=True)
@@ -81,10 +75,9 @@ class Manifest:
     _HEADER_FIELDS = ("name", "source", "split", "domain", "version", "language", "checksum")
 
     def __post_init__(self) -> None:
-        if not self.name:
-            raise ValueError("manifest name must be non-empty")
-        if not self.source:
-            raise ValueError(f"manifest {self.name!r} has an empty source")
+        for key in ("name", "source", "domain", "version", "language"):
+            text_value(getattr(self, key), f"manifest {key}")
+        text_value(self.split, "manifest split")
         if self.split not in _SPLITS:
             raise ValueError(
                 f"manifest {self.name!r} has split {self.split!r}; "
@@ -92,11 +85,20 @@ class Manifest:
             )
         if not self.segments:
             raise ValueError(f"manifest {self.name!r} has no segments")
+        if not isinstance(self.segments, (tuple, list)):
+            raise ValueError("manifest segments must be a sequence of Segment records")
+        object.__setattr__(self, "segments", tuple(self.segments))
         seen: set[str] = set()
         for seg in self.segments:
+            if not isinstance(seg, Segment):
+                raise ValueError("manifest segments must be Segment records")
             if seg.id in seen:
                 raise ValueError(f"manifest {self.name!r} has duplicate segment id {seg.id!r}")
             seen.add(seg.id)
+        if not math.isfinite(sum(seg.duration_s for seg in self.segments)):
+            raise ValueError("total manifest duration must be finite")
+        if self.checksum is not None:
+            text_value(self.checksum, "checksum")
 
     # ---- derived views ---------------------------------------------------
 
@@ -117,12 +119,7 @@ class Manifest:
         return [seg.id for seg in self.segments]
 
     def records_with(self, hypotheses: Mapping[str, str]) -> list[tuple[str, str, str]]:
-        """Join references with ``hypotheses`` into ``(recording_id, ref, hyp)`` triples.
-
-        Every segment must have a hypothesis; a missing prediction raises rather
-        than being silently dropped — a partial run must never masquerade as a
-        complete score. The triples feed :func:`shono.eval.ci.blockwise_bootstrap_ci`.
-        """
+        """Join a complete hypothesis set into (block, reference, hypothesis) triples."""
         missing = [seg.id for seg in self.segments if seg.id not in hypotheses]
         if missing:
             preview = ", ".join(missing[:5])
@@ -136,19 +133,23 @@ class Manifest:
 
     # ---- license linkage -------------------------------------------------
 
-    def validate_against(self, registry: LicenseRegistry) -> None:
+    def validate_against(self, registry: LicenseRegistry, *, training: bool = False) -> None:
         """Assert the source is registered and permitted for this split's use.
 
         Raises if the source is unregistered, or if an ``excluded`` source is
         referenced at all, or if an ``eval-only`` source is used as ``train``.
         This is the check that keeps unlicensed data out of the mix.
         """
+        if type(training) is not bool:
+            raise ValueError("training must be a boolean")
         lic = registry.require(self.source)
         if lic.status == "excluded":
             raise ValueError(
                 f"manifest {self.name!r} references excluded source {lic.id!r}: {lic.notes}"
             )
-        if lic.status == "eval-only" and self.split == "train":
+        if training and self.split != "train":
+            raise ValueError(f"manifest {self.name!r}: training requires a train split")
+        if lic.status == "eval-only" and (self.split == "train" or training):
             raise ValueError(
                 f"manifest {self.name!r} uses eval-only source {lic.id!r} as training data; "
                 "eval-only sources may never enter the train split"
@@ -159,9 +160,13 @@ class Manifest:
     def to_jsonl(self, path: str | Path) -> None:
         """Write the manifest as header-line JSONL."""
         header = {"manifest": {k: getattr(self, k) for k in self._HEADER_FIELDS}}
-        lines = [json.dumps(header, ensure_ascii=False)]
+        lines = [json.dumps(header, ensure_ascii=False, allow_nan=False)]
         lines += [
-            json.dumps({k: v for k, v in asdict(seg).items() if v is not None}, ensure_ascii=False)
+            json.dumps(
+                {k: v for k, v in asdict(seg).items() if v is not None},
+                ensure_ascii=False,
+                allow_nan=False,
+            )
             for seg in self.segments
         ]
         Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -169,16 +174,22 @@ class Manifest:
     @classmethod
     def from_jsonl(cls, path: str | Path) -> Manifest:
         """Load a manifest from header-line JSONL."""
-        raw = [ln for ln in Path(path).read_text(encoding="utf-8").splitlines() if ln.strip()]
+        raw = [
+            (i, ln)
+            for i, ln in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1)
+            if ln.strip()
+        ]
         if not raw:
             raise ValueError(f"manifest file {path} is empty")
-        head = json.loads(raw[0])
-        if "manifest" not in head:
+        head = json_object(raw[0][1], f"{path}: line {raw[0][0]}")
+        if set(head) != {"manifest"}:
             raise ValueError(
                 f"manifest file {path} must start with a header line "
                 '{"manifest": {...}}; got a segment line first'
             )
         meta = head["manifest"]
+        if not isinstance(meta, dict):
+            raise ValueError(f"{path}: manifest header must be an object")
         missing_head = [k for k in _REQUIRED_HEADER if k not in meta]
         if missing_head:
             raise ValueError(
@@ -186,15 +197,23 @@ class Manifest:
                 f"{missing_head}. A manifest header needs {list(_REQUIRED_HEADER)}."
             )
         seg_fields = {f.name for f in fields(Segment)}
+        unknown = set(meta) - set(cls._HEADER_FIELDS)
+        if unknown:
+            raise ValueError(f"{path}: unknown manifest header fields {sorted(unknown)}")
         segments = []
-        for lineno, ln in enumerate(raw[1:], start=2):
-            rec = json.loads(ln)
+        for lineno, ln in raw[1:]:
+            rec = json_object(ln, f"{path}: line {lineno}")
             missing_seg = [k for k in _REQUIRED_SEGMENT if k not in rec]
             if missing_seg:
                 raise ValueError(
                     f"segment on line {lineno} of {path} is missing required field(s): "
                     f"{missing_seg}. A segment needs {list(_REQUIRED_SEGMENT)}."
                 )
-            segments.append(Segment(**{k: v for k, v in rec.items() if k in seg_fields}))
-        head_fields = {f.name for f in fields(cls)}
-        return cls(segments=tuple(segments), **{k: v for k, v in meta.items() if k in head_fields})
+            unknown = set(rec) - seg_fields
+            if unknown:
+                raise ValueError(f"{path}: line {lineno}: unknown segment fields {sorted(unknown)}")
+            try:
+                segments.append(Segment(**rec))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{path}: line {lineno}: {exc}") from exc
+        return cls(segments=tuple(segments), **meta)

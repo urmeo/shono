@@ -1,33 +1,19 @@
-"""The fine-tuning recipe, made explicit and validated.
-
-Whisper-medium is fine-tuned *fully* (not LoRA) with an 8-bit AdamW optimizer —
-the configuration that fit a free T4 and beat LoRA on Bengali long-form in the
-2026 literature. This module holds that recipe as a validated dataclass so the
-training notebook is a thin driver and every hyperparameter is one reviewed,
-version-controlled value rather than a magic number buried in a cell.
-
-The heavy training code (``shono.train.trainer``) imports torch/transformers
-lazily; this config module is pure Python and fully testable without a GPU.
-"""
+"""Validated training settings; hardware fit and convergence are unmeasured."""
 
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
-# Optimizers we support; 8-bit AdamW (bitsandbytes) is the default — it halves
-# optimizer-state memory, which is what lets full fine-tuning fit a 16 GB T4.
+from shono.data.validation import real_number, text_value
+
+# Supported optimizer and scheduler identifiers.
 _OPTIMIZERS = frozenset({"adamw_bnb_8bit", "adamw_torch", "adafactor"})
 _SCHEDULERS = frozenset({"cosine", "linear", "constant_with_warmup"})
 
 
 @dataclass(frozen=True)
 class TrainConfig:
-    """Everything that defines a training run, reproducibly.
-
-    ``model_id`` is required and has no default on purpose: the base checkpoint is
-    a decision (the Bengali whisper-medium fine-tune), and defaulting it risks
-    silently training from the wrong weights.
-    """
+    """Declared settings with an explicit base checkpoint."""
 
     model_id: str
     output_dir: str
@@ -43,23 +29,22 @@ class TrainConfig:
 
     # batch / schedule
     per_device_batch_size: int = 8
-    gradient_accumulation_steps: int = 2  # effective batch 16 on one T4
+    gradient_accumulation_steps: int = 2
     num_train_epochs: float = 5.0
     max_steps: int = -1  # -1 = epoch-based
 
     # audio / features
     chunk_length_s: float = 28.0
     min_chunk_length_s: float = 1.0
-    # Keep a fraction of timestamped targets in the mix: fine-tuning on
-    # untimed text alone makes Whisper forget timestamps, which breaks long-form.
+    # Fraction of aligned examples given timestamp targets.
     timestamp_sample_fraction: float = 0.5
 
-    # memory / precision — the T4-fitting knobs
+    # Precision and memory options.
     fp16: bool = True
     gradient_checkpointing: bool = True
     freeze_encoder: bool = False  # full fine-tune, not LoRA/frozen
 
-    # checkpointing (resume is mandatory to survive session limits)
+    # Saved-step selection and evaluation schedule.
     save_steps: int = 500
     eval_steps: int = 500
     logging_steps: int = 25
@@ -73,6 +58,47 @@ class TrainConfig:
             raise ValueError("model_id is required (the base checkpoint to fine-tune from)")
         if not self.output_dir:
             raise ValueError("output_dir is required (where checkpoints are written)")
+        text_value(self.model_id, "model_id")
+        text_value(self.output_dir, "output_dir")
+        text_value(self.language, "language")
+        for key in ("task", "optim", "lr_scheduler_type"):
+            text_value(getattr(self, key), key)
+        if self.task not in {"transcribe", "translate"}:
+            raise ValueError("task must be transcribe or translate")
+        for key in ("fp16", "gradient_checkpointing", "freeze_encoder", "resume"):
+            if type(getattr(self, key)) is not bool:
+                raise ValueError(f"{key} must be a boolean")
+        for key in (
+            "warmup_steps",
+            "per_device_batch_size",
+            "gradient_accumulation_steps",
+            "max_steps",
+            "save_steps",
+            "eval_steps",
+            "logging_steps",
+            "save_total_limit",
+            "seed",
+        ):
+            if type(getattr(self, key)) is not int:
+                raise ValueError(f"{key} must be an integer")
+        if self.warmup_steps < 0 or not 0 <= self.seed < 2**32:
+            raise ValueError("warmup_steps must be nonnegative and seed in [0, 2**32)")
+        if any(
+            getattr(self, key) < 1
+            for key in ("save_steps", "eval_steps", "logging_steps", "save_total_limit")
+        ):
+            raise ValueError("save/eval/logging steps and save_total_limit must be positive")
+        if self.max_steps != -1 and self.max_steps < 1:
+            raise ValueError("max_steps must be -1 or a positive integer")
+        for key in (
+            "learning_rate",
+            "weight_decay",
+            "num_train_epochs",
+            "chunk_length_s",
+            "min_chunk_length_s",
+            "timestamp_sample_fraction",
+        ):
+            real_number(getattr(self, key), key)
         if self.learning_rate <= 0:
             raise ValueError(f"learning_rate must be > 0, got {self.learning_rate}")
         if self.optim not in _OPTIMIZERS:
@@ -83,10 +109,12 @@ class TrainConfig:
             )
         if self.per_device_batch_size < 1 or self.gradient_accumulation_steps < 1:
             raise ValueError("batch size and gradient_accumulation_steps must be >= 1")
+        real_number(self.effective_batch_size, "effective_batch_size")
+        if self.weight_decay < 0 or self.num_train_epochs < 0:
+            raise ValueError("weight_decay and num_train_epochs must be nonnegative")
         if self.num_train_epochs <= 0 and self.max_steps <= 0:
             raise ValueError("set num_train_epochs > 0 or max_steps > 0")
-        # Upper bound 30 s: Whisper's receptive field, and past it the segment-level
-        # timestamp token (<|30.00|>) would collide into non-timestamp vocabulary.
+        # Supported Whisper audio/timestamp window.
         if not 0.0 < self.min_chunk_length_s < self.chunk_length_s <= 30.0:
             raise ValueError(
                 f"need 0 < min_chunk_length_s ({self.min_chunk_length_s}) "

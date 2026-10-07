@@ -1,4 +1,4 @@
-"""The frozen pipeline does what it claims — and never what generic normalizers do to Bengali."""
+"""Frozen Bengali normalization fixtures and Unicode boundaries."""
 
 import json
 import re
@@ -19,10 +19,9 @@ def test_fixture_case(case):
 
 
 def test_matras_survive_normalization():
-    # Generic Mark-stripping normalizers (e.g. Whisper's BasicTextNormalizer)
-    # turn 'কি' into 'ক', silently deflating error rates. Ours must not.
+    # Removing vowel marks would change the word.
     out = normalize("কি?")
-    assert "ি" in out, "i-kar matra was stripped — the pipeline is corrupting Bengali"
+    assert "ি" in out, "i-kar vowel mark was stripped"
     assert out == "কি"
 
 

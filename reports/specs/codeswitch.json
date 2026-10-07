@@ -1,33 +1,69 @@
 {
   "name": "codeswitch",
-  "title": "Shono code-switch — the first per-slice Bn-En comparison",
+  "title": "Shono codeswitch results",
   "seed": 0,
   "n_resamples": 1000,
   "slices": [
-    {"name": "mucs-cs-test", "manifest": "data/mucs-cs-test.manifest.jsonl", "domain": "code-switch"},
-    {"name": "cs-mini-eval", "manifest": "data/cs-mini-eval.manifest.jsonl", "domain": "code-switch"}
+    {
+      "name": "mucs-cs-test",
+      "manifest": "data/mucs-cs-test.manifest.jsonl",
+      "domain": "code-switch"
+    },
+    {
+      "name": "cs-mini-eval",
+      "manifest": "data/cs-mini-eval.manifest.jsonl",
+      "domain": "code-switch"
+    }
   ],
   "systems": [
     {
       "name": "shono whisper-medium (fine-tuned)",
+      "model_id": "unknown",
       "predictions": {
-        "mucs-cs-test": "reports/predictions/shono-medium__mucs-cs-test.jsonl",
-        "cs-mini-eval": "reports/predictions/shono-medium__cs-mini-eval.jsonl"
-      }
+        "mucs-cs-test": "outputs/shono-medium__mucs-cs-test.jsonl",
+        "cs-mini-eval": "outputs/shono-medium__cs-mini-eval.jsonl"
+      },
+      "inference_modes": {
+        "mucs-cs-test": "bounded-short",
+        "cs-mini-eval": "bounded-short"
+      },
+      "training_audit": "required",
+      "train_manifests": [
+        "data/cv-bn-train.manifest.jsonl",
+        "data/slr53-train.manifest.jsonl",
+        "data/mucs-cs-train.manifest.jsonl"
+      ],
+      "pending_slices": {}
     },
     {
       "name": "tugstugi whisper-medium (base)",
+      "model_id": "bengaliAI/tugstugi_bengaliai-asr_whisper-medium",
       "predictions": {
-        "mucs-cs-test": "reports/predictions/tugstugi-medium__mucs-cs-test.jsonl",
-        "cs-mini-eval": "reports/predictions/tugstugi-medium__cs-mini-eval.jsonl"
-      }
+        "mucs-cs-test": "outputs/tugstugi-medium__mucs-cs-test.jsonl",
+        "cs-mini-eval": "outputs/tugstugi-medium__cs-mini-eval.jsonl"
+      },
+      "inference_modes": {
+        "mucs-cs-test": "bounded-short",
+        "cs-mini-eval": "bounded-short"
+      },
+      "training_audit": "unknown",
+      "train_manifests": [],
+      "pending_slices": {}
     },
     {
       "name": "whisper-large-v3 (zero-shot)",
+      "model_id": "openai/whisper-large-v3",
       "predictions": {
-        "mucs-cs-test": "reports/predictions/large-v3__mucs-cs-test.jsonl",
-        "cs-mini-eval": "reports/predictions/large-v3__cs-mini-eval.jsonl"
-      }
+        "mucs-cs-test": "outputs/large-v3__mucs-cs-test.jsonl",
+        "cs-mini-eval": "outputs/large-v3__cs-mini-eval.jsonl"
+      },
+      "inference_modes": {
+        "mucs-cs-test": "bounded-short",
+        "cs-mini-eval": "bounded-short"
+      },
+      "training_audit": "unknown",
+      "train_manifests": [],
+      "pending_slices": {}
     }
   ]
 }

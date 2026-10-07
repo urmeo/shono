@@ -1,33 +1,69 @@
 {
   "name": "longform",
-  "title": "Shono long-form — lecture/podcast transcription vs the baselines",
+  "title": "Shono longform results",
   "seed": 0,
   "n_resamples": 1000,
   "slices": [
-    {"name": "bengali-loop-test", "manifest": "data/bengali-loop-test.manifest.jsonl", "domain": "long-form"},
-    {"name": "lecture-podcast-eval", "manifest": "data/lecture-podcast-eval.manifest.jsonl", "domain": "long-form"}
+    {
+      "name": "bengali-loop-test",
+      "manifest": "data/bengali-loop-test.manifest.jsonl",
+      "domain": "long-form"
+    },
+    {
+      "name": "lecture-podcast-eval",
+      "manifest": "data/lecture-podcast-eval.manifest.jsonl",
+      "domain": "long-form"
+    }
   ],
   "systems": [
     {
       "name": "shono whisper-medium (fine-tuned)",
+      "model_id": "unknown",
       "predictions": {
-        "bengali-loop-test": "reports/predictions/shono-medium__bengali-loop-test.jsonl",
-        "lecture-podcast-eval": "reports/predictions/shono-medium__lecture-podcast-eval.jsonl"
-      }
+        "bengali-loop-test": "outputs/shono-medium__bengali-loop-test.jsonl",
+        "lecture-podcast-eval": "outputs/shono-medium__lecture-podcast-eval.jsonl"
+      },
+      "inference_modes": {
+        "bengali-loop-test": "long-form-vad",
+        "lecture-podcast-eval": "long-form-vad"
+      },
+      "training_audit": "required",
+      "train_manifests": [
+        "data/cv-bn-train.manifest.jsonl",
+        "data/slr53-train.manifest.jsonl",
+        "data/mucs-cs-train.manifest.jsonl"
+      ],
+      "pending_slices": {}
     },
     {
       "name": "tugstugi whisper-medium (base)",
+      "model_id": "bengaliAI/tugstugi_bengaliai-asr_whisper-medium",
       "predictions": {
-        "bengali-loop-test": "reports/predictions/tugstugi-medium__bengali-loop-test.jsonl",
-        "lecture-podcast-eval": "reports/predictions/tugstugi-medium__lecture-podcast-eval.jsonl"
-      }
+        "bengali-loop-test": "outputs/tugstugi-medium__bengali-loop-test.jsonl",
+        "lecture-podcast-eval": "outputs/tugstugi-medium__lecture-podcast-eval.jsonl"
+      },
+      "inference_modes": {
+        "bengali-loop-test": "long-form-vad",
+        "lecture-podcast-eval": "long-form-vad"
+      },
+      "training_audit": "unknown",
+      "train_manifests": [],
+      "pending_slices": {}
     },
     {
       "name": "whisper-large-v3 (zero-shot)",
+      "model_id": "openai/whisper-large-v3",
       "predictions": {
-        "bengali-loop-test": "reports/predictions/large-v3__bengali-loop-test.jsonl",
-        "lecture-podcast-eval": "reports/predictions/large-v3__lecture-podcast-eval.jsonl"
-      }
+        "bengali-loop-test": "outputs/large-v3__bengali-loop-test.jsonl",
+        "lecture-podcast-eval": "outputs/large-v3__lecture-podcast-eval.jsonl"
+      },
+      "inference_modes": {
+        "bengali-loop-test": "long-form-vad",
+        "lecture-podcast-eval": "long-form-vad"
+      },
+      "training_audit": "unknown",
+      "train_manifests": [],
+      "pending_slices": {}
     }
   ]
 }
