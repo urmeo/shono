@@ -6,7 +6,7 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from shono.data.audio_paths import DurationFn, resolved_path, validate_manifest_audio
 from shono.data.leakage import require_no_leakage
@@ -16,9 +16,6 @@ from shono.train.checkpoint import decide_resume
 from shono.train.config import TrainConfig
 from shono.train.data import build_examples
 from shono.train.output import validate_training_output
-
-if TYPE_CHECKING:  # pragma: no cover
-    pass
 
 TARGET_SAMPLE_RATE = 16_000
 

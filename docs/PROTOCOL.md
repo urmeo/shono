@@ -50,7 +50,7 @@ Core verification installs no models or provider SDKs. Install only the runtime 
 | Path | Dependencies |
 | :--- | :--- |
 | Training / HF inference | Transformers `>=4.46.3,<5`; Torch `>=2.6,<3`; accelerate; soundfile; librosa; NumPy |
-| CT2 transcription | faster-whisper `>=1.2,<2`; CTranslate2 `>=4,<5`; Silero; soundfile; Torch |
+| CT2 transcription | faster-whisper `>=1.2,<2`; CTranslate2 `>=4,<5`; Silero; soundfile; Torch; librosa; NumPy |
 | Speaker labels | pyannote.audio `>=4,<5`; accepted model access conditions |
 | Cloud | deepgram-sdk `>=7,<8` or google-cloud-speech `>=2,<3` |
 | Demo | Gradio `>=5,<6` plus the selected transcription runtime |
