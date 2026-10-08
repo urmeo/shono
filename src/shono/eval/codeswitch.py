@@ -22,7 +22,7 @@ def code_switch_normalize(text: str) -> str:
 def _script_of(char: str) -> str:
     if char.isdigit():
         return "digit"
-    if ord(char) in _BENGALI_BLOCK:
+    if ord(char) in _BENGALI_BLOCK and unicodedata.category(char)[0] in "LM":
         return "bengali"
     if char.isascii() and char.isalpha():
         return "latin"

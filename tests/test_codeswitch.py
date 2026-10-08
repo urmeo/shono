@@ -63,6 +63,13 @@ def test_is_code_switched():
     assert not is_code_switched("only english")
 
 
+def test_bengali_currency_is_not_a_script_letter():
+    counts = script_counts("৳ price")
+    assert counts == {"bengali": 0, "latin": 5, "digit": 0, "other": 1}
+    assert not is_code_switched("৳ price")
+    assert bengali_fraction("৳ price") == 0.0
+
+
 def _cs_manifest(domain):
     seg = Segment(
         id="s0",
