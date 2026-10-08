@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from shono.data.manifest import Manifest
 
 DurationFn = Callable[[Path], float]
-WINDOW_TOLERANCE_S = 0.001  # Indexes may round to milliseconds.
+WINDOW_TOLERANCE_S = 0.001
 
 
 def resolved_path(path: str | Path) -> Path:
@@ -47,7 +47,7 @@ def audio_duration(path: Path) -> float:
             with wave.open(str(path), "rb") as source:
                 return source.getnframes() / source.getframerate()
         except (wave.Error, EOFError):
-            pass  # Other WAV encodings are supported by soundfile.
+            pass
     try:
         import soundfile as sf
     except ImportError as exc:

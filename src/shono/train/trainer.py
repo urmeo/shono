@@ -17,7 +17,7 @@ from shono.train.config import TrainConfig
 from shono.train.data import build_examples
 from shono.train.output import validate_training_output
 
-if TYPE_CHECKING:  # pragma: no cover - typing only, never imported at runtime here
+if TYPE_CHECKING:  # pragma: no cover
     pass
 
 TARGET_SAMPLE_RATE = 16_000

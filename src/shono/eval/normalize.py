@@ -9,14 +9,12 @@ import unicodedata
 
 from bnunicodenormalizer import Normalizer as _BnNormalizer
 
-# Stamped into every report; bump only via a new decision record, and
-# regenerate every report in the same change.
 NORMALIZER_VERSION = "1.1.0"
 
 _bnorm = _BnNormalizer(allow_english=True)
 
 _BN_TO_ASCII_DIGITS = str.maketrans("০১২৩৪৫৬৭৮৯", "0123456789")
-_ZERO_WIDTH = {"\u200b", "\u200c", "\u200d", "\ufeff"}  # ZWSP, ZWNJ, ZWJ, BOM
+_ZERO_WIDTH = {"\u200b", "\u200c", "\u200d", "\ufeff"}
 
 
 def _normalize_word(word: str) -> str:

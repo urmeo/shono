@@ -12,8 +12,6 @@ _FIXTURE = json.loads(
 )
 _RECORDS = [tuple(r) for r in _FIXTURE["records"]]
 
-# Resampling 2 blocks with replacement can only produce {A,A}, {A,B}, {B,B}:
-# corpus WERs 0, 1/6, 1/3. Any other value means resampling is not blockwise.
 _BLOCKWISE_ONLY_VALUES = {0.0, 1 / 6, 1 / 3}
 
 
@@ -25,8 +23,6 @@ def test_point_estimate_matches_hand_count():
 
 
 def test_resampling_is_genuinely_blockwise():
-    # Segment-wise resampling would produce values like 1/12 (one errorful
-    # segment among three perfect ones) that block resampling cannot.
     result = blockwise_bootstrap_ci(
         _RECORDS, metric="wer", n_resamples=500, seed=7, keep_samples=True
     )

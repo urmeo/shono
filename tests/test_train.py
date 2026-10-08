@@ -30,13 +30,10 @@ def _config(**over) -> TrainConfig:
     return TrainConfig(**base)
 
 
-# ---- TrainConfig ---------------------------------------------------------
-
-
 def test_config_defaults_are_the_recipe():
     c = _config()
-    assert c.optim == "adamw_bnb_8bit"  # declared optimizer
-    assert c.freeze_encoder is False  # full fine-tune, not LoRA
+    assert c.optim == "adamw_bnb_8bit"
+    assert c.freeze_encoder is False
     assert c.effective_batch_size == c.per_device_batch_size * c.gradient_accumulation_steps
 
 
@@ -66,12 +63,8 @@ def test_config_rejects_out_of_range_timestamp_fraction():
 
 
 def test_config_rejects_chunk_over_30s():
-    # The supported timestamp grid ends at 30 s.
     with pytest.raises(ValueError, match="chunk_length_s"):
         _config(chunk_length_s=45.0)
-
-
-# ---- checkpoint / resume -------------------------------------------------
 
 
 def _make_checkpoint(root, step, *, complete=True):
@@ -91,7 +84,7 @@ def test_resume_is_fresh_when_no_checkpoints(tmp_path):
 def test_resume_picks_latest_complete_checkpoint(tmp_path):
     _make_checkpoint(tmp_path, 500)
     _make_checkpoint(tmp_path, 1000)
-    _make_checkpoint(tmp_path, 1500, complete=False)  # half-written : must be skipped
+    _make_checkpoint(tmp_path, 1500, complete=False)
     decision = decide_resume(tmp_path)
     assert decision.resume is True
     assert decision.checkpoint.name == "checkpoint-1000"
@@ -108,9 +101,6 @@ def test_resume_can_be_forced_off(tmp_path):
     decision = decide_resume(tmp_path, enabled=False)
     assert decision.resume is False
     assert isinstance(decision, ResumeDecision)
-
-
-# ---- example selection ---------------------------------------------------
 
 
 def _manifest(name, split, durations):
@@ -130,7 +120,7 @@ def _manifest(name, split, durations):
 
 
 def test_build_examples_filters_by_duration():
-    m = _manifest("m", "train", [0.5, 2.0, 30.0, 40.0])  # keep only 2.0 and 30.0
+    m = _manifest("m", "train", [0.5, 2.0, 30.0, 40.0])
     examples = build_examples(
         [m],
         chunk_length_s=30.0,
@@ -168,8 +158,8 @@ def test_timestamp_fraction_is_deterministic_and_correctly_sized():
     a = build_examples([m], **kw)
     b = build_examples([m], **kw)
     n_ts = sum(e.use_timestamps for e in a)
-    assert n_ts == 5  # round(0.5 * 10)
-    assert [e.use_timestamps for e in a] == [e.use_timestamps for e in b]  # deterministic
+    assert n_ts == 5
+    assert [e.use_timestamps for e in a] == [e.use_timestamps for e in b]
 
 
 def test_total_hours_sums_across_manifests():
@@ -184,9 +174,6 @@ def test_total_hours_sums_across_manifests():
         registry=synthetic_registry("openslr_slr53"),
     )
     assert total_hours(examples) == pytest.approx(1.5)
-
-
-# ---- experiment record ---------------------------------------------------
 
 
 def _run_context() -> RunContext:
@@ -217,10 +204,7 @@ def test_experiment_record_shows_delta_vs_baseline():
         baseline={"eval_wer": 0.34},
     )
     assert "eval_wer 0.2500" in text
-    assert "-0.0900" in text  # improvement over baseline
-
-
-# ---- CPU smoke (torch required) ------------------------------------------
+    assert "-0.0900" in text
 
 
 def test_smoke_step_runs_one_step_on_cpu(tmp_path):
@@ -229,14 +213,12 @@ def test_smoke_step_runs_one_step_on_cpu(tmp_path):
     from shono.train import smoke_step
 
     result = smoke_step(tmp_path)
-    assert result["loss"] == result["loss"]  # a real float (not NaN)
+    assert result["loss"] == result["loss"]
     assert result["reloaded_params"] > 0
     assert (tmp_path / "checkpoint-1").is_dir()
 
 
 def test_timestamped_label_omits_notimestamps_token(tmp_path):
-    # A timestamped target must NOT contain <|notimestamps|> : otherwise the model
-    # is trained on "no timestamps" immediately followed by timestamp tokens.
     from shono.train.audio import WhisperFineTuneDataset
     from shono.train.data import TrainExample
 
@@ -271,5 +253,5 @@ def test_timestamped_label_omits_notimestamps_token(tmp_path):
     labels = ds._labels_for(example)
     no_ts = processor.tokenizer.convert_tokens_to_ids("<|notimestamps|>")
     zero_ts = processor.tokenizer.convert_tokens_to_ids("<|0.00|>")
-    assert no_ts not in labels  # the bug this pins: notimestamps must be gone
-    assert zero_ts in labels  # a real segment-start timestamp token is present
+    assert no_ts not in labels
+    assert zero_ts in labels

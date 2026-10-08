@@ -12,7 +12,7 @@ from shono.train.config import TrainConfig
 from shono.train.data import TrainExample
 
 TARGET_SAMPLE_RATE = 16_000
-_TIMESTAMP_RESOLUTION_S = 0.02  # Whisper emits one timestamp token per 20 ms
+_TIMESTAMP_RESOLUTION_S = 0.02
 
 
 def _load_audio(path: Path, start_s: float | None, duration_s: float):
@@ -95,9 +95,6 @@ class WhisperFineTuneDataset:
         if not example.use_timestamps:
             labels = tokenizer(example.text).input_ids
             return self._validate_labels(labels, example)
-        # Segment-level timestamps: <|sot|><|bn|><|transcribe|> <|0.00|> text <|end|> <|eot|>.
-        # The default prefix ends with <|notimestamps|>, which contradicts a timestamped
-        # Remove the no-timestamps prefix from timestamp targets.
         no_ts = tokenizer.convert_tokens_to_ids("<|notimestamps|>")
         prefix = [t for t in tokenizer.prefix_tokens if t != no_ts]
         text_ids = tokenizer(example.text, add_special_tokens=False).input_ids

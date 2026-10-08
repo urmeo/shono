@@ -43,8 +43,6 @@ def test_detects_shared_segment_id():
 
 
 def test_detects_text_overlap_under_frozen_normalizer():
-    # Same sentence, different punctuation/id : must collide because the frozen
-    # normalizer canonicalizes both to the same string.
     train = _m("train", "train", [_seg("t1", "আমি ভাত খাই।")])
     test = _m("test", "test", [_seg("e1", "আমি ভাত খাই")])
     report = audit_leakage(train, test, check=["text"])
@@ -62,15 +60,15 @@ def test_detects_audio_checksum_overlap():
 
 def test_audio_coverage_reported_when_checksums_partial():
     train = _m("train", "train", [_seg("t1", "কথা", sha="a" * 64)])
-    test = _m("test", "test", [_seg("e1", "ভিন্ন")])  # no checksum
+    test = _m("test", "test", [_seg("e1", "ভিন্ন")])
     report = audit_leakage(train, test, check=["audio"])
-    assert report.audio_coverage == 0.5  # 1 of 2 segments carried a checksum
+    assert report.audio_coverage == 0.5
 
 
 def test_audit_against_a_mix_of_train_manifests():
     a = _m("slr53", "train", [_seg("a1", "প্রথম")])
     b = _m("cv", "train", [_seg("b1", "দ্বিতীয় বাক্য")])
-    test = _m("test", "test", [_seg("e1", "দ্বিতীয় বাক্য")])  # collides with b via text
+    test = _m("test", "test", [_seg("e1", "দ্বিতীয় বাক্য")])
     report = audit_leakage([a, b], test, check=["text"])
     assert not report.is_clean
     assert report.train_names == ("slr53", "cv")

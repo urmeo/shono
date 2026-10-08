@@ -15,7 +15,6 @@ from pathlib import Path
 
 from shono.eval.normalize import NORMALIZER_VERSION
 
-# Relevant packages are recorded even when their version is unknown.
 _TRACKED_PACKAGES = (
     "shono",
     "jiwer",

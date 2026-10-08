@@ -100,8 +100,6 @@ class Manifest:
         if self.checksum is not None:
             text_value(self.checksum, "checksum")
 
-    # ---- derived views ---------------------------------------------------
-
     def total_hours(self) -> float:
         """Total audio duration across all segments, in hours."""
         return sum(seg.duration_s for seg in self.segments) / 3600.0
@@ -131,8 +129,6 @@ class Manifest:
             )
         return [(seg.recording_id, seg.text, hypotheses[seg.id]) for seg in self.segments]
 
-    # ---- license linkage -------------------------------------------------
-
     def validate_against(self, registry: LicenseRegistry, *, training: bool = False) -> None:
         """Assert the source is registered and permitted for this split's use.
 
@@ -154,8 +150,6 @@ class Manifest:
                 f"manifest {self.name!r} uses eval-only source {lic.id!r} as training data; "
                 "eval-only sources may never enter the train split"
             )
-
-    # ---- serialization ---------------------------------------------------
 
     def to_jsonl(self, path: str | Path) -> None:
         """Write the manifest as header-line JSONL."""

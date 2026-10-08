@@ -30,9 +30,6 @@ class _FakeDiarizer:
         return [SpeakerSegment(0, 4, "A")]
 
 
-# ---- orchestration -------------------------------------------------------
-
-
 def test_transcribe_recording_attributes_speakers():
     pipeline = LongFormTranscriber(_FakeVAD(), _FakeTranscriber(), pad_s=0.0)
     transcript = transcribe_recording("rec.wav", 4.0, pipeline, _FakeDiarizer())
@@ -46,9 +43,6 @@ def test_transcribe_recording_without_diarizer_has_no_speakers():
     assert transcript.segments[0].speaker is None
 
 
-# ---- formatting ----------------------------------------------------------
-
-
 def test_format_merges_consecutive_same_speaker():
     transcript = Transcript(
         segments=(
@@ -58,7 +52,6 @@ def test_format_merges_consecutive_same_speaker():
         )
     )
     out = format_transcript(transcript)
-    # A's two segments merge into one line; B is a separate line.
     assert out.count("**A**") == 1
     assert "প্রথম দ্বিতীয়" in out
     assert "**B**" in out
@@ -68,9 +61,6 @@ def test_format_merges_consecutive_same_speaker():
 def test_format_falls_back_when_no_speaker():
     transcript = Transcript(segments=(TranscriptSegment(0, 2, "কথা"),))
     assert "**Speaker**" in format_transcript(transcript)
-
-
-# ---- model card ----------------------------------------------------------
 
 
 def _report():
@@ -103,10 +93,10 @@ def test_model_card_quotes_scored_numbers_and_dashes_pending():
         repo_url="https://github.com/urmeo/shono",
         limitations=["bn-BD register only"],
     )
-    assert "20.0% [15.0%, 25.0%]" in card  # the scored slice
-    assert "| bengali-loop-test | pending |" in card  # the pending slice, honest dash
-    assert "v1.1.0" in card  # frozen normalizer stamped
-    assert "bn-BD register only" in card  # limitation carried through
+    assert "20.0% [15.0%, 25.0%]" in card
+    assert "| bengali-loop-test | pending |" in card
+    assert "v1.1.0" in card
+    assert "bn-BD register only" in card
 
 
 def test_model_card_never_invents_a_number_for_pending_only_report():
@@ -126,7 +116,6 @@ def test_model_card_never_invents_a_number_for_pending_only_report():
         repo_url="u",
     )
     assert "| s | pending |" in card
-    # No fabricated number in the results table: the only slice row is a dash.
     assert re.search(r"\| s \| [\d.]+%", card) is None
 
 

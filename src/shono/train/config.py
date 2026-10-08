@@ -6,7 +6,6 @@ from dataclasses import asdict, dataclass
 
 from shono.data.validation import real_number, text_value
 
-# Supported optimizer and scheduler identifiers.
 _OPTIMIZERS = frozenset({"adamw_bnb_8bit", "adamw_torch", "adafactor"})
 _SCHEDULERS = frozenset({"cosine", "linear", "constant_with_warmup"})
 
@@ -20,31 +19,25 @@ class TrainConfig:
     language: str = "bn"
     task: str = "transcribe"
 
-    # optimization
     learning_rate: float = 1e-5
     lr_scheduler_type: str = "cosine"
     warmup_steps: int = 500
     weight_decay: float = 0.0
     optim: str = "adamw_bnb_8bit"
 
-    # batch / schedule
     per_device_batch_size: int = 8
     gradient_accumulation_steps: int = 2
     num_train_epochs: float = 5.0
-    max_steps: int = -1  # -1 = epoch-based
+    max_steps: int = -1
 
-    # audio / features
     chunk_length_s: float = 28.0
     min_chunk_length_s: float = 1.0
-    # Fraction of aligned examples given timestamp targets.
     timestamp_sample_fraction: float = 0.5
 
-    # Precision and memory options.
     fp16: bool = True
     gradient_checkpointing: bool = True
-    freeze_encoder: bool = False  # full fine-tune, not LoRA/frozen
+    freeze_encoder: bool = False
 
-    # Saved-step selection and evaluation schedule.
     save_steps: int = 500
     eval_steps: int = 500
     logging_steps: int = 25
@@ -114,7 +107,6 @@ class TrainConfig:
             raise ValueError("weight_decay and num_train_epochs must be nonnegative")
         if self.num_train_epochs <= 0 and self.max_steps <= 0:
             raise ValueError("set num_train_epochs > 0 or max_steps > 0")
-        # Supported Whisper audio/timestamp window.
         if not 0.0 < self.min_chunk_length_s < self.chunk_length_s <= 30.0:
             raise ValueError(
                 f"need 0 < min_chunk_length_s ({self.min_chunk_length_s}) "

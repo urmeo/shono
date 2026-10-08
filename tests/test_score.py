@@ -20,22 +20,17 @@ def test_hand_computed_wer_cer(case):
 
 
 def test_raw_wer_treats_any_whitespace_as_separator():
-    # Whisper-family output routinely contains newlines; a newline is not an error.
     assert wer(["আমি ভাত খাই"], ["আমি ভাত\nখাই"]) == 0.0
     assert wer(["আমি ভাত খাই"], ["আমি  ভাত\tখাই"]) == 0.0
 
 
 def test_raw_scoring_never_folds_case():
-    # 'Bank' vs 'bank' IS an error, raw and normalized; casing is preserved
-    # end to end (documented policy in shono.eval.normalize).
     assert wer(["আমি Bank এ যাব"], ["আমি bank এ যাব"]) == pytest.approx(0.25)
     report = score(["আমি Bank এ যাব"], ["আমি bank এ যাব"])
     assert report.wer_normalized == pytest.approx(0.25)
 
 
 def test_punctuation_mismatch_penalized_raw_but_not_normalized():
-    # 'খাই।' vs 'খাই' is a real transcription match with a punctuation
-    # difference: raw scoring counts it as an error, normalized must not.
     report = score(["আমি ভাত খাই।"], ["আমি ভাত খাই"])
     assert report.wer_raw == pytest.approx(1 / 3)
     assert report.wer_normalized == 0.0
@@ -44,14 +39,12 @@ def test_punctuation_mismatch_penalized_raw_but_not_normalized():
 
 
 def test_normalization_applied_to_both_sides():
-    # Same punctuation on both sides: normalized AND raw agree at zero.
     report = score(["খাই।"], ["খাই।"])
     assert report.wer_raw == 0.0
     assert report.wer_normalized == 0.0
 
 
 def test_taka_spacing_cannot_flip_normalized_scores():
-    # '৳১০০' vs '৳ ১০০' is the same amount; symbol policy makes them agree.
     report = score(["৳ ১০০ দাম"], ["৳১০০ দাম"])
     assert report.wer_normalized == 0.0
 
@@ -72,7 +65,5 @@ def test_empty_reference_raises():
 
 
 def test_reference_empty_after_normalization_raises():
-    # A reference that is pure symbols normalizes to nothing; loud failure,
-    # not a silent 0-word segment.
     with pytest.raises(ValueError, match="empty"):
         score(["৳!"], ["টাকা"])

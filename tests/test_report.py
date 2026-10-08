@@ -78,9 +78,6 @@ def base(tmp_path: Path) -> Path:
     return tmp_path
 
 
-# ---- scoring a cell ------------------------------------------------------
-
-
 def test_perfect_predictions_score_zero(registry):
     manifest = Manifest.from_jsonl(_FIXTURES / "tiny_manifest.jsonl")
     preds = Predictions("perfect", "tiny-longform-test", dict(_REFS))
@@ -88,14 +85,13 @@ def test_perfect_predictions_score_zero(registry):
     assert cell.status == "scored"
     assert cell.score.wer_raw == 0.0
     assert cell.wer_ci.point == 0.0 and cell.wer_ci.upper == 0.0
-    assert cell.n_recordings == 2  # the two rec-loop blocks
+    assert cell.n_recordings == 2
 
 
 def test_ci_point_matches_normalized_score():
-    # The CI point estimate equals normalized corpus WER.
     manifest = Manifest.from_jsonl(_FIXTURES / "tiny_manifest.jsonl")
     hyps = dict(_REFS)
-    hyps["loop01-000"] = "আজকে আমরা কথা বলব ইংরেজি ভাষা নিয়ে"  # one substitution
+    hyps["loop01-000"] = "আজকে আমরা কথা বলব ইংরেজি ভাষা নিয়ে"
     cell = score_slice(manifest, Predictions("s", "tiny-longform-test", hyps), n_resamples=300)
     assert cell.wer_ci.point == pytest.approx(cell.score.wer_normalized)
     assert cell.score.wer_raw > 0.0
@@ -111,7 +107,7 @@ def test_incomplete_predictions_are_an_error_not_a_partial_score():
 def test_extra_predictions_are_rejected():
     manifest = Manifest.from_jsonl(_FIXTURES / "tiny_manifest.jsonl")
     hyps = dict(_REFS)
-    hyps["ghost-id"] = "স্টেল অনুমান"  # an id not in the manifest
+    hyps["ghost-id"] = "স্টেল অনুমান"
     with pytest.raises(ValueError, match="not in the manifest"):
         score_slice(manifest, Predictions("s", "tiny-longform-test", hyps), n_resamples=200)
 
@@ -123,8 +119,6 @@ def test_mispaired_predictions_manifest_name_rejected():
 
 
 def test_single_recording_slice_scored_without_ci():
-    # One block has no between-block variance; retain its
-    # point estimate without a CI.
     one = Manifest(
         name="single",
         source="openslr_slr53",
@@ -141,9 +135,6 @@ def test_single_recording_slice_scored_without_ci():
     assert cell.status == "scored"
     assert cell.wer_ci is None and cell.cer_ci is None
     assert cell.score.wer_normalized == 0.0
-
-
-# ---- predictions I/O -----------------------------------------------------
 
 
 def test_predictions_require_header(tmp_path):
@@ -166,8 +157,6 @@ def test_predictions_round_trip(tmp_path):
 
 
 def test_duplicate_prediction_id_rejected(tmp_path):
-    # Appended predictions must not overwrite an earlier hypothesis;
-    # symmetric with Manifest rejecting duplicate segment ids.
     p = tmp_path / "p.jsonl"
     p.write_text(
         "\n".join(
@@ -182,9 +171,6 @@ def test_duplicate_prediction_id_rejected(tmp_path):
     )
     with pytest.raises(ValueError, match="duplicate id"):
         Predictions.from_jsonl(p)
-
-
-# ---- full report assembly ------------------------------------------------
 
 
 def _spec(base: Path, systems) -> ReportSpec:
@@ -218,12 +204,11 @@ def test_scored_cell_renders_numbers(base, registry):
     cell = report.cell("sys-a", "tiny")
     assert not cell.is_pending
     md = report.render_markdown()
-    assert "0.0% [0.0%, 0.0%]" in md  # perfect predictions
-    assert "## Data licenses" in md  # license table embedded
+    assert "0.0% [0.0%, 0.0%]" in md
+    assert "## Data licenses" in md
 
 
 def test_missing_manifest_makes_slice_pending(base, registry):
-    # The manifest for a slice may not exist yet (gated data); the skeleton still renders.
     spec = {
         "name": "t",
         "title": "T",
@@ -235,10 +220,7 @@ def test_missing_manifest_makes_slice_pending(base, registry):
     path.write_text(json.dumps(spec), encoding="utf-8")
     report = build_report(ReportSpec.from_json(path), base, registry)
     assert report.cells[0].is_pending
-    assert report.cells[0].domain == "read"  # intended domain from the spec
-
-
-# ---- the CLI -------------------------------------------------------------
+    assert report.cells[0].domain == "read"
 
 
 def test_cli_writes_md_and_json(base):
@@ -258,26 +240,22 @@ def test_cli_unknown_report_exits_2(base):
 
 
 def test_cli_incomplete_predictions_exits_1_and_writes_nothing(base):
-    # The highest-stakes honesty path, end to end: an incomplete predictions file
-    # must fail the CLI, not emit a partial report.
     partial = {k: v for k, v in _REFS.items() if k != "loop02-001"}
     _predictions_file(base / "reports" / "predictions" / "s__tiny.jsonl", partial, "sys-a")
     _spec(base, [{"name": "sys-a", "predictions": {"tiny": "reports/predictions/s__tiny.jsonl"}}])
     rc = main(["--report", "t", "--base-dir", str(base)])
     assert rc == 1
-    assert not (base / "outputs" / "t.md").exists()  # nothing written on failure
+    assert not (base / "outputs" / "t.md").exists()
 
 
 def test_cli_real_baselines_spec_is_valid_skeleton(base):
-    # The shipped baselines spec must load and render an all-pending skeleton
-    # (its manifests/predictions are gated), never crash.
     repo = Path(__file__).resolve().parents[1]
     spec_src = (repo / "reports" / "specs" / "baselines.json").read_text(encoding="utf-8")
     (base / "reports" / "specs" / "baselines.json").write_text(spec_src, encoding="utf-8")
     rc = main(["--report", "baselines", "--base-dir", str(base)])
     assert rc == 0
     payload = json.loads((base / "outputs" / "baselines.json").read_text(encoding="utf-8"))
-    assert len(payload["cells"]) == 9  # 3 systems x 3 slices
+    assert len(payload["cells"]) == 9
     assert all(c["status"] == "pending" for c in payload["cells"])
 
 

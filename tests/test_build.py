@@ -18,10 +18,7 @@ _LICENSES = Path(__file__).resolve().parents[1] / "data" / "licenses.json"
 
 
 def _fake_duration(_path):
-    return 3.0  # inject a fixed duration instead of reading audio
-
-
-# ---- build_manifest ------------------------------------------------------
+    return 3.0
 
 
 def test_build_manifest_from_rows_uses_injected_duration():
@@ -39,15 +36,15 @@ def test_build_manifest_from_rows_uses_injected_duration():
         duration_of=_fake_duration,
     )
     assert len(m.segments) == 2
-    assert m.segments[0].duration_s == 3.0  # from the injected duration_of
-    assert m.segments[1].duration_s == 5.0  # from the row (not recomputed)
-    assert m.segments[0].recording_id == "a"  # defaults to id
+    assert m.segments[0].duration_s == 3.0
+    assert m.segments[1].duration_s == 5.0
+    assert m.segments[0].recording_id == "a"
 
 
 def test_build_manifest_skips_empty_text_rows():
     rows = [
         {"id": "a", "audio": "a.wav", "text": "কথা"},
-        {"id": "b", "audio": "b.wav", "text": "   "},  # unscorable → skipped
+        {"id": "b", "audio": "b.wav", "text": "   "},
     ]
     m = build_manifest(
         name="m",
@@ -71,10 +68,7 @@ def test_build_manifest_validates_against_license_floor():
         rows=[{"id": "a", "audio": "a.wav", "text": "কথা"}],
         duration_of=_fake_duration,
     )
-    m.validate_against(LicenseRegistry.load(_LICENSES))  # source registered → no raise
-
-
-# ---- Common Voice --------------------------------------------------------
+    m.validate_against(LicenseRegistry.load(_LICENSES))
 
 
 def test_from_common_voice_tsv(tmp_path):
@@ -83,7 +77,7 @@ def test_from_common_voice_tsv(tmp_path):
         "client_id\tpath\tsentence\n"
         "spk1\tcv_bn_1.mp3\tআমি ভাত খাই\n"
         "spk1\tcv_bn_2.mp3\tতুমি কি করছ\n"
-        "spk2\tcv_bn_3.mp3\t\n",  # empty sentence → skipped
+        "spk2\tcv_bn_3.mp3\t\n",
         encoding="utf-8",
     )
     m = from_common_voice_tsv(
@@ -95,7 +89,7 @@ def test_from_common_voice_tsv(tmp_path):
     )
     assert len(m.segments) == 2
     assert m.segments[0].audio == "clips/cv_bn_1.mp3"
-    assert m.segments[0].recording_id == "spk1"  # client_id is the CI block
+    assert m.segments[0].recording_id == "spk1"
     assert m.source == "common_voice_bn"
 
 
@@ -113,10 +107,7 @@ def test_from_common_voice_uses_durations_tsv(tmp_path):
         version="v",
         durations_tsv=tmp_path / "clip_durations.tsv",
     )
-    assert m.segments[0].duration_s == pytest.approx(4.2)  # from the durations file
-
-
-# ---- FLEURS --------------------------------------------------------------
+    assert m.segments[0].duration_s == pytest.approx(4.2)
 
 
 def test_collapse_to_recordings_joins_segments_per_recording():
@@ -138,23 +129,21 @@ def test_collapse_to_recordings_joins_segments_per_recording():
         segments=segs,
     )
     collapsed = collapse_to_recordings(m)
-    assert len(collapsed.segments) == 2  # one entry per recording
+    assert len(collapsed.segments) == 2
     r1 = next(s for s in collapsed.segments if s.recording_id == "r1")
-    assert r1.text == "প্রথম দ্বিতীয়"  # joined in start-time order
-    assert r1.duration_s == 6.0  # annotated timeline includes the silence gap
+    assert r1.text == "প্রথম দ্বিতীয়"
+    assert r1.duration_s == 6.0
     assert r1.id == "r1"
 
 
 def test_from_fleurs_tsv_derives_duration_from_num_samples(tmp_path):
     tsv = tmp_path / "test.tsv"
-    # headerless: id  file_name  raw  transcription  num_samples  gender
     tsv.write_text(
-        "1\t1.wav\tকাঁচা\tকাঁচা লেখা\t48000\tFEMALE\n"
-        "2\t2.wav\t\t\t16000\tMALE\n",  # empty transcription → skipped
+        "1\t1.wav\tকাঁচা\tকাঁচা লেখা\t48000\tFEMALE\n2\t2.wav\t\t\t16000\tMALE\n",
         encoding="utf-8",
     )
     m = from_fleurs_tsv(tsv, split="test", name="fleurs-bn-test")
     assert len(m.segments) == 1
-    assert m.segments[0].duration_s == pytest.approx(48000 / 16000)  # 3.0 s
+    assert m.segments[0].duration_s == pytest.approx(48000 / 16000)
     assert m.segments[0].text == "কাঁচা লেখা"
     assert m.source == "fleurs_bn"

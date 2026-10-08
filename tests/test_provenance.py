@@ -30,7 +30,6 @@ def test_capture_records_seed_config_command():
 
 
 def test_capture_stamps_normalizer_version():
-    # A report's numbers are only meaningful against the normalizer that made them.
     assert _capture().normalizer_version == NORMALIZER_VERSION
 
 
@@ -51,7 +50,6 @@ def test_to_dict_is_json_serializable():
 
 def test_packages_include_shono_and_scoring_deps():
     pkgs = _capture().packages
-    # These are always installed in this repo; torch/cuda deps are legitimately absent locally.
     assert "jiwer" in pkgs
     assert "bnunicodenormalizer" in pkgs
 

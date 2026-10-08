@@ -9,7 +9,6 @@ import unicodedata
 
 from shono.eval.normalize import normalize
 
-# Bump only via a documented decision; a change regenerates every code-switch report.
 CS_NORMALIZER_VERSION = "1.0.0"
 
 _BENGALI_BLOCK = range(0x0980, 0x0A00)
@@ -21,7 +20,7 @@ def code_switch_normalize(text: str) -> str:
 
 
 def _script_of(char: str) -> str:
-    if char.isdigit():  # before the Bengali block, so Bengali digits ০-৯ count as digits
+    if char.isdigit():
         return "digit"
     if ord(char) in _BENGALI_BLOCK:
         return "bengali"

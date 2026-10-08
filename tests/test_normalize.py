@@ -19,14 +19,12 @@ def test_fixture_case(case):
 
 
 def test_matras_survive_normalization():
-    # Removing vowel marks would change the word.
     out = normalize("কি?")
     assert "ি" in out, "i-kar vowel mark was stripped"
     assert out == "কি"
 
 
 def test_nfc_composes_decomposed_o_kar():
-    # ka + e-kar (U+09C7) + aa-kar (U+09BE) must compose to ka + o-kar (U+09CB).
     decomposed = "\u0995\u09c7\u09be"
     composed = "\u0995\u09cb"
     assert decomposed != composed
@@ -34,8 +32,8 @@ def test_nfc_composes_decomposed_o_kar():
 
 
 def test_zero_width_characters_removed():
-    for zw in ("\u200b", "\u200c", "\u200d", "\ufeff"):  # ZWSP, ZWNJ, ZWJ, BOM
-        assert zw not in normalize(f"\u0986{zw}\u09ae\u09bf")  # আ<zw>মি
+    for zw in ("\u200b", "\u200c", "\u200d", "\ufeff"):
+        assert zw not in normalize(f"\u0986{zw}\u09ae\u09bf")
 
 
 def test_idempotent():

@@ -37,7 +37,7 @@ class LeakageReport:
     eval_name: str
     overlaps: tuple[Overlap, ...]
     checked_kinds: tuple[str, ...]
-    audio_coverage: float  # Combined metadata coverage, not pairwise comparison coverage.
+    audio_coverage: float
     train_hashed: int = 0
     train_total: int = 0
     eval_hashed: int = 0

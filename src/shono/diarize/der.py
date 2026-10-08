@@ -32,14 +32,11 @@ class DERResult:
     false_alarm_s: float
     confusion_s: float
     total_ref_s: float
-    mapping: dict[str, str]  # hypothesis label -> reference label (optimal)
+    mapping: dict[str, str]
     config: DERConfig | None = None
 
     def as_percent(self) -> float:
         return self.der * 100.0
-
-
-# ---- Hungarian algorithm (max-weight assignment) -------------------------
 
 
 def _min_cost_assignment(cost: list[list[float]]) -> list[int]:
@@ -109,9 +106,6 @@ def _max_weight_matching(refs: list[str], hyps: list[str], overlap: dict) -> dic
     return mapping
 
 
-# ---- timeline machinery --------------------------------------------------
-
-
 def _active(segments: list[SpeakerSegment], a: float, b: float) -> set[str]:
     mid = a / 2.0 + b / 2.0
     return {s.speaker for s in segments if s.start_s <= mid < s.end_s}
@@ -161,7 +155,6 @@ def der(
     overlap: dict[tuple[str, str], float] = {}
     missed = false_alarm = 0.0
     total_ref = 0.0
-    # first pass: co-occurrence for the optimal mapping
     for a, b in zip(cuts, cuts[1:], strict=False):
         d = b - a
         if d <= 0 or _in_any(no_score, a, b):
@@ -212,8 +205,6 @@ def der(
     )
 
 
-# ---- corpus-level DER + confidence interval ------------------------------
-
 Recording = tuple[list[SpeakerSegment], list[SpeakerSegment]]
 
 
@@ -240,7 +231,7 @@ def corpus_der(recordings: list[Recording], config: DERConfig | None = None) -> 
         false_alarm_s=false_alarm,
         confusion_s=confusion,
         total_ref_s=total_ref,
-        mapping={},  # per-recording mappings are not comparable across the corpus
+        mapping={},
         config=config or DERConfig(),
     )
 

@@ -746,7 +746,6 @@ def build_report(
 
 def write_report(report: Report, out_dir: str | Path) -> tuple[Path, Path]:
     """Render both files before staging and replacing their destinations."""
-    # Render before mkdir so invalid report state creates no artifacts.
     markdown = report.render_markdown()
     payload = (
         json.dumps(report.to_json_dict(), ensure_ascii=False, indent=2, allow_nan=False) + "\n"
