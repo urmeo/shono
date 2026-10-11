@@ -73,8 +73,8 @@ def base(tmp_path: Path) -> Path:
     (tmp_path / "data" / "licenses.json").write_text(
         json.dumps({"licenses": [asdict(_synthetic_license())]}), encoding="utf-8"
     )
-    (tmp_path / "reports" / "specs").mkdir(parents=True)
-    (tmp_path / "reports" / "predictions").mkdir()
+    (tmp_path / "configs" / "reports").mkdir(parents=True)
+    (tmp_path / "reports" / "predictions").mkdir(parents=True)
     return tmp_path
 
 
@@ -181,7 +181,7 @@ def _spec(base: Path, systems) -> ReportSpec:
         "slices": [{"name": "tiny", "manifest": "data/tiny.manifest.jsonl", "domain": "long-form"}],
         "systems": systems,
     }
-    path = base / "reports" / "specs" / "t.json"
+    path = base / "configs" / "reports" / "t.json"
     path.write_text(json.dumps(spec), encoding="utf-8")
     return ReportSpec.from_json(path)
 
@@ -216,7 +216,7 @@ def test_missing_manifest_makes_slice_pending(base, registry):
         "slices": [{"name": "future", "manifest": "data/not-yet.manifest.jsonl", "domain": "read"}],
         "systems": [{"name": "sys", "predictions": {}}],
     }
-    path = base / "reports" / "specs" / "t.json"
+    path = base / "configs" / "reports" / "t.json"
     path.write_text(json.dumps(spec), encoding="utf-8")
     report = build_report(ReportSpec.from_json(path), base, registry)
     assert report.cells[0].is_pending
@@ -250,8 +250,8 @@ def test_cli_incomplete_predictions_exits_1_and_writes_nothing(base):
 
 def test_cli_real_baselines_spec_is_valid_skeleton(base):
     repo = Path(__file__).resolve().parents[1]
-    spec_src = (repo / "reports" / "specs" / "baselines.json").read_text(encoding="utf-8")
-    (base / "reports" / "specs" / "baselines.json").write_text(spec_src, encoding="utf-8")
+    spec_src = (repo / "configs" / "reports" / "baselines.json").read_text(encoding="utf-8")
+    (base / "configs" / "reports" / "baselines.json").write_text(spec_src, encoding="utf-8")
     rc = main(["--report", "baselines", "--base-dir", str(base)])
     assert rc == 0
     payload = json.loads((base / "outputs" / "baselines.json").read_text(encoding="utf-8"))
@@ -482,7 +482,7 @@ def test_excluded_source_pending_and_never_scored(base):
     "bad", [[], None, "bad", {"name": "../x", "title": "x", "slices": [], "systems": []}]
 )
 def test_invalid_spec_shapes_cli_has_no_traceback(base, bad, capsys):
-    (base / "reports/specs/t.json").write_text(json.dumps(bad))
+    (base / "configs/reports/t.json").write_text(json.dumps(bad))
     assert main(["--report", "t", "--base-dir", str(base)]) == 1
     assert "Traceback" not in capsys.readouterr().err
     assert not (base / "outputs").exists()
@@ -537,7 +537,7 @@ def test_duplicate_header_fields_reject(tmp_path):
 
 def test_cli_explicit_relative_spec_resolves_against_base(base):
     _spec(base, [{"name": "s", "predictions": {}}])
-    assert main(["--report", "t", "--spec", "reports/specs/t.json", "--base-dir", str(base)]) == 0
+    assert main(["--report", "t", "--spec", "configs/reports/t.json", "--base-dir", str(base)]) == 0
     assert (base / "outputs/t.json").is_file()
 
 
@@ -547,7 +547,7 @@ def test_cli_io_failures_are_clear(base, which, capsys):
     if which == "registry":
         (base / "data/licenses.json").write_text("[]")
     elif which == "spec":
-        (base / "reports/specs/t.json").write_text("{")
+        (base / "configs/reports/t.json").write_text("{")
     else:
         (base / "outputs").symlink_to("outputs")
     assert main(["--report", "t", "--base-dir", str(base)]) == 1
@@ -576,11 +576,11 @@ def test_render_failure_writes_no_files(base, registry, monkeypatch):
 
 def test_report_cannot_overwrite_spec(base, registry):
     spec = _spec(base, [{"name": "s", "predictions": {}}])
-    before = (base / "reports/specs/t.json").read_bytes()
+    before = (base / "configs/reports/t.json").read_bytes()
     report = build_report(spec, base, registry)
     with pytest.raises(ValueError, match="overwrite input"):
-        write_report(report, base / "reports/specs")
-    assert (base / "reports/specs/t.json").read_bytes() == before
+        write_report(report, base / "configs/reports")
+    assert (base / "configs/reports/t.json").read_bytes() == before
 
 
 def test_declared_training_sources_must_pass_license_floor(base, registry):

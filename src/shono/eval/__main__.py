@@ -23,7 +23,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--report", required=True, help="report name")
     parser.add_argument("--spec", type=Path, help="explicit spec path, relative to --base-dir")
     parser.add_argument("--base-dir", type=Path, default=Path.cwd())
-    parser.add_argument("--specs-dir", type=Path, default=Path("reports/specs"))
+    parser.add_argument("--specs-dir", type=Path, default=Path("configs/reports"))
     parser.add_argument("--out-dir", type=Path, default=Path("outputs"))
     parser.add_argument("--licenses", type=Path, default=Path("data/licenses.json"))
     return parser

@@ -72,7 +72,7 @@ def test_canonical_base_is_not_generic_or_regional_checkpoint():
     assert BASE_SYSTEM == "tugstugi whisper-medium (base)"
     assert "regional" not in BASE_MODEL_ID
     for name in ("baselines", "longform", "codeswitch", "full"):
-        actual = json.loads((REPO / f"reports/specs/{name}.json").read_text())
+        actual = json.loads((REPO / f"configs/reports/{name}.json").read_text())
         assert actual == report_spec(name)
         base = next(system for system in actual["systems"] if system["name"] == BASE_SYSTEM)
         assert base["model_id"] == BASE_MODEL_ID

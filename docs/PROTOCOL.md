@@ -84,7 +84,7 @@ WER/CER pool edits over reference units. Confidence intervals resample declared 
 
 Each report cell records its policy/version, input hashes and inference context. Missing manifests, predictions, permissions or unsupported protocols remain pending. Upstream model training data is unknown unless supplied; local leakage checks cannot establish its independence.
 
-Predictions and reports share `outputs/`; checkpoints remain outside Git. Checkpoint resume selects the latest saved step with its required markers; interruption-safe completeness and training convergence require a real run.
+Report definitions are in `configs/reports/`. Predictions and reports share `outputs/`; checkpoints remain outside Git. Checkpoint resume selects the latest saved step with its required markers; interruption-safe completeness and training convergence require a real run.
 
 ## Primary references
 
