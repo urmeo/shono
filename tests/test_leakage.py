@@ -1,4 +1,4 @@
-"""The leakage audit finds id, text, and audio overlap : and stays honest when clean."""
+"""Check ID, text, and audio overlap detection, including non-overlapping inputs."""
 
 from shono.data import Manifest, Segment, audit_leakage
 

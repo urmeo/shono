@@ -1,4 +1,4 @@
-"""Honest evaluation for Bengali ASR: frozen normalization, WER/CER, bootstrap CIs."""
+"""Bengali ASR evaluation: versioned normalization, WER/CER, and bootstrap intervals."""
 
 from shono.eval.ci import BootstrapCI, blockwise_bootstrap_ci
 from shono.eval.codeswitch import (

@@ -1,4 +1,4 @@
-"""The data layer: manifests round-trip, validate hard, and honour the license floor."""
+"""Check manifest round trips, validation, and license requirements."""
 
 import json
 from pathlib import Path

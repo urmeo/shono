@@ -1,4 +1,4 @@
-"""RunContext captures a reproducible, JSON-safe snapshot; seeding is real."""
+"""Check JSON-safe run metadata and reproducible random seeds."""
 
 import json
 import random
