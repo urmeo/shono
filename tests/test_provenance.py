@@ -2,6 +2,8 @@
 
 import json
 import random
+import subprocess
+import sys
 from datetime import UTC, datetime
 
 from shono.eval import NORMALIZER_VERSION
@@ -114,3 +116,22 @@ def test_extra_named_command_and_api_aliases_do_not_retain_credentials():
     )
     text = json.dumps(context.extra)
     assert "abc" not in text and "private" not in text
+
+
+def test_provenance_imports_before_evaluation_in_fresh_python():
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-W",
+            "error",
+            "-c",
+            "from shono.provenance import RunContext\n"
+            "from shono.eval import Report, build_report\n"
+            "assert RunContext.capture(0, {}).normalizer_version == '1.1.0'\n"
+            "assert callable(Report) and callable(build_report)\n",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""

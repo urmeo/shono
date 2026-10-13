@@ -38,8 +38,8 @@ def audio_reference(value: object) -> str:
         "\\" in value
         or "\x00" in value
         or path.is_absolute()
-        or ":" in path.parts[0]
         or any(p in {"", ".", ".."} for p in value.split("/"))
+        or ":" in path.parts[0]
     ):
         raise ValueError("audio must be a relative POSIX path without traversal")
     return value

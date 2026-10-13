@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
-import math
 from collections.abc import Mapping, Sequence
+
+from shono.transcribe._validation import finite_real
 
 
 def _validate_text(value: object, name: str) -> None:
@@ -17,22 +18,13 @@ def _wer_str(cell: Mapping | None) -> str:
         return "pending"
     if cell.get("status") != "scored" or not isinstance(cell.get("wer_norm"), Mapping):
         raise ValueError("invalid scored model-card cell")
-    metric = cell["wer_norm"]
+    metric = dict(cell["wer_norm"])
     for key in ("point", "lo", "hi"):
         value = metric.get(key)
         if key != "point" and value is None:
             continue
-        try:
-            finite = math.isfinite(value) if isinstance(value, (int, float)) else False
-        except OverflowError:
-            finite = False
-        if (
-            isinstance(value, bool)
-            or not isinstance(value, (int, float))
-            or not finite
-            or value < 0
-        ):
-            raise ValueError("WER values must be finite nonnegative numbers")
+        metric[key] = finite_real(value, f"WER {key}", minimum=0)
+        finite_real(metric[key] * 100, f"WER {key} percentage", minimum=0)
     if (metric.get("lo") is None) != (metric.get("hi") is None):
         raise ValueError("WER interval needs both bounds or neither")
     if metric.get("lo") is None:
@@ -126,12 +118,10 @@ def render_model_card(
         cell = cells.get((system, name))
         if cell is None:
             raise ValueError(f"missing model-card cell for {system!r}/{name!r}")
-        if (
-            cell.get("status") == "scored"
-            and "fine-tuned" in system
-            and cell.get("leakage_audit", {}).get("status") != "reviewed"
-        ):
-            raise ValueError("scored fine-tuned cards require a reviewed training audit")
+        if cell.get("status") == "scored" and "fine-tuned" in system:
+            audit = cell.get("leakage_audit")
+            if not isinstance(audit, Mapping) or audit.get("status") != "reviewed":
+                raise ValueError("scored fine-tuned cards require a reviewed training audit")
         policy = cell.get("normalization_policy", "unknown")
         version = cell.get("normalizer_version", "unknown")
         lines.append(f"| {name} | {_wer_str(cell)} | {policy} v{version} |")

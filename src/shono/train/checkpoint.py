@@ -2,48 +2,47 @@
 
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
-_CKPT_RE = re.compile(r"^checkpoint-(\d+)$")
+from shono.data.validation import json_object
+
+_CKPT_RE = re.compile(r"checkpoint-(\d+)")
 _COMPLETION_MARKER = "trainer_state.json"
 
 
 def _step_of(path: Path) -> int | None:
-    m = _CKPT_RE.match(path.name)
-    return int(m.group(1)) if m else None
+    match = _CKPT_RE.fullmatch(path.name)
+    return int(match.group(1)) if match else None
 
 
 def is_complete_checkpoint(path: Path) -> bool:
     """A candidate has valid saved-step metadata, not verified optimizer/weight bytes."""
-    if not path.is_dir() or _step_of(path) is None or not (path / _COMPLETION_MARKER).is_file():
+    step = _step_of(path)
+    marker = path / _COMPLETION_MARKER
+    if not path.is_dir() or step is None or not marker.is_file():
         return False
     try:
-        state = json.loads((path / _COMPLETION_MARKER).read_text(encoding="utf-8"))
+        state = json_object(marker.read_text(encoding="utf-8"), str(marker))
     except (ValueError, OSError):
         return False
-    return (
-        isinstance(state, dict)
-        and type(state.get("global_step")) is int
-        and state["global_step"] == _step_of(path)
-    )
+    return type(state.get("global_step")) is int and state["global_step"] == step
 
 
 def list_checkpoints(output_dir: str | Path) -> list[Path]:
     """Saved-step candidates in ascending step order."""
-    out = Path(output_dir)
-    if not out.is_dir():
+    directory = Path(output_dir)
+    if not directory.is_dir():
         return []
-    ckpts = [p for p in out.iterdir() if is_complete_checkpoint(p)]
-    return sorted(ckpts, key=lambda p: _step_of(p) or 0)
+    checkpoints = [path for path in directory.iterdir() if is_complete_checkpoint(path)]
+    return sorted(checkpoints, key=lambda path: _step_of(path) or 0)
 
 
 def find_latest_checkpoint(output_dir: str | Path) -> Path | None:
     """Return the highest valid saved-step candidate, or None."""
-    ckpts = list_checkpoints(output_dir)
-    return ckpts[-1] if ckpts else None
+    checkpoints = list_checkpoints(output_dir)
+    return checkpoints[-1] if checkpoints else None
 
 
 @dataclass(frozen=True)

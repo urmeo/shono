@@ -24,12 +24,12 @@ def _normalize_word(word: str) -> str:
 
 
 def _replace_punct_and_symbols(text: str) -> str:
-    out = []
-    for c in text:
-        if c in _ZERO_WIDTH:
+    characters = []
+    for character in text:
+        if character in _ZERO_WIDTH:
             continue
-        out.append(" " if unicodedata.category(c)[0] in "PS" else c)
-    return "".join(out)
+        characters.append(" " if unicodedata.category(character)[0] in "PS" else character)
+    return "".join(characters)
 
 
 def normalize(text: str) -> str:

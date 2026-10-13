@@ -107,8 +107,8 @@ def _max_weight_matching(refs: list[str], hyps: list[str], overlap: dict) -> dic
 
 
 def _active(segments: list[SpeakerSegment], a: float, b: float) -> set[str]:
-    mid = a / 2.0 + b / 2.0
-    return {s.speaker for s in segments if s.start_s <= mid < s.end_s}
+    """Find active labels in an interval split at every segment boundary."""
+    return {s.speaker for s in segments if s.start_s < b and a < s.end_s}
 
 
 def _no_score_boundaries(
@@ -126,8 +126,7 @@ def _no_score_boundaries(
 
 
 def _in_any(regions: list[tuple[float, float]], a: float, b: float) -> bool:
-    mid = a / 2.0 + b / 2.0
-    return any(lo <= mid < hi for lo, hi in regions)
+    return any(lo < b and a < hi for lo, hi in regions)
 
 
 def der(

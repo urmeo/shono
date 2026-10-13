@@ -26,7 +26,6 @@ _TINY = (
 )
 _LICENSES = Path(__file__).resolve().parents[1] / "data" / "licenses.json"
 
-_IDS = ["loop01-000", "loop01-001", "loop01-002", "loop02-000", "loop02-001"]
 _REFS = {
     "loop01-000": "আজকে আমরা কথা বলব বাংলা ভাষা নিয়ে",
     "loop01-001": "ভাষা হল যোগাযোগের প্রধান মাধ্যম",
@@ -78,7 +77,7 @@ def base(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_perfect_predictions_score_zero(registry):
+def test_perfect_predictions_score_zero():
     manifest = Manifest.from_jsonl(_FIXTURES / "tiny_manifest.jsonl")
     preds = Predictions("perfect", "tiny-longform-test", dict(_REFS))
     cell = score_slice(manifest, preds, n_resamples=200)

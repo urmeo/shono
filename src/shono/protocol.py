@@ -119,18 +119,20 @@ def run_matrix(*, fine_tuned_model: str = "unknown") -> tuple[RunEntry, ...]:
         supported = not (provider == "google" and domain == "long-form")
         entries.append(
             RunEntry(
-                slug,
-                system,
-                name,
-                f"data/{name}.manifest.jsonl",
-                f"outputs/{slug}__{name}.jsonl",
-                domain,
-                fine_tuned_model if slug == "shono-medium" else model_id,
-                mode,
-                provider,
-                name in {"lecture-podcast-eval", "cs-mini-eval"},
-                supported,
-                "Google Recognize long-form protocol is unsupported" if not supported else "",
+                slug=slug,
+                system=system,
+                slice_name=name,
+                manifest=f"data/{name}.manifest.jsonl",
+                predictions=f"outputs/{slug}__{name}.jsonl",
+                domain=domain,
+                model_id=fine_tuned_model if slug == "shono-medium" else model_id,
+                inference_mode=mode,
+                provider=provider,
+                optional=name in {"lecture-podcast-eval", "cs-mini-eval"},
+                supported=supported,
+                pending_reason="Google Recognize long-form protocol is unsupported"
+                if not supported
+                else "",
             )
         )
     return tuple(entries)

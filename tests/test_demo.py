@@ -145,7 +145,7 @@ def test_card_mixed_policy_is_per_cell_and_no_trained_claim():
     assert "Model-weight license: **unknown**. Code license: MIT." in card
 
 
-@pytest.mark.parametrize("point", [True, -1, float("nan"), float("inf"), "0.2"])
+@pytest.mark.parametrize("point", [True, -1, float("nan"), float("inf"), 1e308, "0.2"])
 def test_card_rejects_invalid_scores(point):
     report = _report()
     report["cells"][0]["wer_norm"]["point"] = point
@@ -178,12 +178,14 @@ def test_card_extreme_integer_score_is_a_domain_error():
         )
 
 
-def test_fine_tuned_card_cannot_publish_unreviewed_scored_cell():
+@pytest.mark.parametrize("audit", [None, [], "reviewed", {"status": "unreviewed"}])
+def test_fine_tuned_card_cannot_publish_unreviewed_scored_cell(audit):
     from shono.protocol import OUR_SYSTEM
 
     report = _report()
     for cell in report["cells"]:
         cell["system"] = OUR_SYSTEM
+    report["cells"][0]["leakage_audit"] = audit
     with pytest.raises(ValueError, match="reviewed training audit"):
         render_model_card(
             report,

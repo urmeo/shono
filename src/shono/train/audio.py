@@ -40,11 +40,11 @@ def _timestamp_token_id(tokenizer: Any, seconds: float) -> int:
     if type(base) is not int or base == getattr(tokenizer, "unk_token_id", None):
         raise ValueError("tokenizer does not support Whisper timestamp tokens")
     steps = int(round(seconds / _TIMESTAMP_RESOLUTION_S))
-    return base + max(steps, 0)
+    return base + steps
 
 
 class WhisperFineTuneDataset:
-    """A torch-style dataset yielding ``{"input_features", "labels"}`` per example."""
+    """Yield audio features, attention masks and decoder labels for training."""
 
     def __init__(
         self,

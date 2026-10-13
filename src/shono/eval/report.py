@@ -13,7 +13,7 @@ from pathlib import Path, PurePosixPath
 
 from shono.data.license import LicenseRegistry
 from shono.data.manifest import Manifest
-from shono.data.validation import json_object
+from shono.data.validation import json_object, text_value
 from shono.eval.ci import BootstrapCI, blockwise_bootstrap_ci, validate_bootstrap_settings
 from shono.eval.codeswitch import CS_NORMALIZER_VERSION, code_switch_normalize
 from shono.eval.normalize import NORMALIZER_VERSION, normalize
@@ -25,28 +25,14 @@ _DEFAULT_RESAMPLES = 1000
 _CODE_SWITCH_DOMAIN = "code-switch"
 
 
-def _normalizer_for(domain: str) -> tuple[Callable[[str], str], str]:
+def _normalization_for(domain: str) -> tuple[Callable[[str], str], str, str]:
     if domain == _CODE_SWITCH_DOMAIN:
-        return code_switch_normalize, CS_NORMALIZER_VERSION
-    return normalize, NORMALIZER_VERSION
-
-
-def _policy_for(domain: str) -> tuple[str, str]:
-    return (
-        ("code-switch-script", CS_NORMALIZER_VERSION)
-        if domain == _CODE_SWITCH_DOMAIN
-        else ("bengali", NORMALIZER_VERSION)
-    )
-
-
-def _text(value: object, name: str) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{name} must be a nonempty string")
-    return value
+        return code_switch_normalize, "code-switch-script", CS_NORMALIZER_VERSION
+    return normalize, "bengali", NORMALIZER_VERSION
 
 
 def _relative_path(value: object, name: str) -> str:
-    value = _text(value, name)
+    value = text_value(value, name)
     path = PurePosixPath(value)
     if path.is_absolute() or ".." in path.parts or "\\" in value:
         raise ValueError(f"{name} must be a relative POSIX path without traversal")
@@ -77,12 +63,12 @@ class Predictions:
     source_sha256: str = "unknown"
 
     def __post_init__(self) -> None:
-        _text(self.system, "prediction system")
-        _text(self.manifest, "prediction manifest")
+        text_value(self.system, "prediction system")
+        text_value(self.manifest, "prediction manifest")
         if not isinstance(self.hypotheses, dict):
             raise ValueError("hypotheses must be an object")
         for sid, hypothesis in self.hypotheses.items():
-            _text(sid, "prediction id")
+            text_value(sid, "prediction id")
             if not isinstance(hypothesis, str):
                 raise ValueError("hypotheses must be strings")
         if self.run_context is not None:
@@ -122,17 +108,17 @@ class Predictions:
             record = json_object(line, f"{path}:{lineno}")
             if "id" not in record or "hypothesis" not in record:
                 raise ValueError(f"invalid prediction record on line {lineno} of {path}")
-            sid = _text(record["id"], "prediction id")
+            sid = text_value(record["id"], "prediction id")
             if sid in hypotheses:
                 raise ValueError(
                     f"predictions file {path} has a duplicate id {sid!r} on line {lineno}"
                 )
             hypotheses[sid] = record["hypothesis"]
         return cls(
-            meta.get("system"),
-            meta.get("manifest"),
-            hypotheses,
-            meta.get("run_context"),
+            system=meta.get("system"),
+            manifest=meta.get("manifest"),
+            hypotheses=hypotheses,
+            run_context=meta.get("run_context"),
             source_sha256=hashlib.sha256(raw).hexdigest(),
         )
 
@@ -191,7 +177,7 @@ def score_slice(
             f"{sorted(extra)[:5]}"
         )
     records = manifest.records_with(predictions.hypotheses)
-    normalizer, version = _normalizer_for(manifest.domain)
+    normalizer, policy, version = _normalization_for(manifest.domain)
     result = score(
         [r for _, r, _ in records],
         [h for _, _, h in records],
@@ -214,7 +200,7 @@ def score_slice(
         cer_ci=None
         if one_block
         else blockwise_bootstrap_ci(normalized, "cer", n_resamples=n_resamples, seed=seed),
-        normalization_policy=_policy_for(manifest.domain)[0],
+        normalization_policy=policy,
         normalizer_version=version,
         inference_context=predictions.run_context
         if predictions.run_context is not None
@@ -233,7 +219,7 @@ class SliceSpec:
     domain: str = ""
 
     def __post_init__(self) -> None:
-        _text(self.name, "slice name")
+        text_value(self.name, "slice name")
         _relative_path(self.manifest, "manifest path")
         if not isinstance(self.domain, str):
             raise ValueError("slice domain must be a string")
@@ -251,16 +237,16 @@ class SystemSpec:
     pending_slices: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        _text(self.name, "system name")
-        _text(self.model_id, "model_id")
+        text_value(self.name, "system name")
+        text_value(self.model_id, "model_id")
         if not isinstance(self.predictions, dict) or not isinstance(self.inference_modes, dict):
             raise ValueError("predictions and inference_modes must be objects")
         for name, path in self.predictions.items():
-            _text(name, "prediction slice")
+            text_value(name, "prediction slice")
             _relative_path(path, "prediction path")
         for name, mode in self.inference_modes.items():
-            _text(name, "inference slice")
-            _text(mode, "inference mode")
+            text_value(name, "inference slice")
+            text_value(mode, "inference mode")
         if not isinstance(self.training_audit, str) or self.training_audit not in {
             "required",
             "unknown",
@@ -278,15 +264,15 @@ class SystemSpec:
         if not isinstance(self.text_decisions, dict) or not isinstance(self.pending_slices, dict):
             raise ValueError("text_decisions and pending_slices must be objects")
         for name, decisions in self.text_decisions.items():
-            _text(name, "review slice")
+            text_value(name, "review slice")
             if not isinstance(decisions, dict):
                 raise ValueError("each text review must be an object of exact keys and reasons")
             for key, reason in decisions.items():
-                _text(key, "text review key")
-                _text(reason, "text review reason")
+                text_value(key, "text review key")
+                text_value(reason, "text review reason")
         for name, reason in self.pending_slices.items():
-            _text(name, "pending slice")
-            _text(reason, "pending reason")
+            text_value(name, "pending slice")
+            text_value(reason, "pending reason")
 
 
 @dataclass(frozen=True)
@@ -309,7 +295,7 @@ class ReportSpec:
             raise ValueError(
                 "report name must contain only letters, digits, underscores and hyphens"
             )
-        _text(self.title, "report title")
+        text_value(self.title, "report title")
         validate_bootstrap_settings(self.n_resamples, 0.95, self.seed)
         for values, kind, cls in [
             (self.slices, "slices", SliceSpec),
@@ -338,7 +324,7 @@ class ReportSpec:
         for path in self.train_manifests:
             _relative_path(path, "training manifest path")
         if self.audio_root is not None:
-            _text(self.audio_root, "audio_root")
+            text_value(self.audio_root, "audio_root")
 
     @classmethod
     def from_json(cls, path: str | Path) -> ReportSpec:
@@ -385,14 +371,14 @@ class ReportSpec:
             ),
             systems=tuple(
                 SystemSpec(
-                    s.get("name"),
-                    s.get("predictions", {}),
-                    s.get("model_id", "unknown"),
-                    s.get("inference_modes", {}),
-                    s.get("training_audit", "unknown"),
-                    s.get("train_manifests", ()),
-                    s.get("text_decisions", {}),
-                    s.get("pending_slices", {}),
+                    name=s.get("name"),
+                    predictions=s.get("predictions", {}),
+                    model_id=s.get("model_id", "unknown"),
+                    inference_modes=s.get("inference_modes", {}),
+                    training_audit=s.get("training_audit", "unknown"),
+                    train_manifests=s.get("train_manifests", ()),
+                    text_decisions=s.get("text_decisions", {}),
+                    pending_slices=s.get("pending_slices", {}),
                 )
                 for s in doc["systems"]
             ),
@@ -672,7 +658,7 @@ def build_report(
                     f"unsupported cell {system.name!r}/{item.name!r} has predictions: {blocked}"
                 )
             available = manifest is not None and path is not None and path.exists() and not blocked
-            policy, version = _policy_for(domains[item.name])
+            _, policy, version = _normalization_for(domains[item.name])
             audit = _audit(
                 system, spec, manifest, item.name, base, scored=available, registry=registry
             )
@@ -684,10 +670,10 @@ def build_report(
             if not available:
                 cells.append(
                     SliceScore(
-                        system.name,
-                        item.name,
-                        domains[item.name],
-                        "pending",
+                        system=system.name,
+                        slice_name=item.name,
+                        domain=domains[item.name],
+                        status="pending",
                         normalization_policy=policy,
                         normalizer_version=version,
                         input_hashes=input_hashes,
@@ -733,13 +719,13 @@ def build_report(
                 )
             )
     return Report(
-        spec.name,
-        spec.title,
-        context,
-        tuple(cells),
-        tuple(s.name for s in spec.slices),
-        tuple(s.name for s in spec.systems),
-        registry.render_table(),
+        name=spec.name,
+        title=spec.title,
+        run_context=context,
+        cells=tuple(cells),
+        slice_order=tuple(item.name for item in spec.slices),
+        system_order=tuple(system.name for system in spec.systems),
+        license_table=registry.render_table(),
         input_paths=tuple(paths),
     )
 

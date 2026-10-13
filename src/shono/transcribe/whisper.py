@@ -42,11 +42,14 @@ class ShortFormWhisperTranscriber:
             import torch
             from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
-            self._processor = WhisperProcessor.from_pretrained(self.model_id)
-            self._model = WhisperForConditionalGeneration.from_pretrained(self.model_id)
-            self.device = self.device or ("cuda" if torch.cuda.is_available() else "cpu")
-            self._model.to(self.device)
-            self._model.eval()
+            processor = WhisperProcessor.from_pretrained(self.model_id)
+            model = WhisperForConditionalGeneration.from_pretrained(self.model_id)
+            device = self.device or ("cuda" if torch.cuda.is_available() else "cpu")
+            model.to(device)
+            model.eval()
+            self._processor = processor
+            self._model = model
+            self.device = device
         return self._model, self._processor
 
     def transcribe(

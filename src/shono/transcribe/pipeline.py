@@ -217,6 +217,7 @@ class FasterWhisperTranscriber:
         )
         texts: list[str] = []
         words: list[Word] = []
+        has_untimed_text = False
         log_probabilities: list[float] = []
         compression_ratios: list[float] = []
         no_speech_probabilities: list[float] = []
@@ -225,9 +226,11 @@ class FasterWhisperTranscriber:
             log_probabilities.append(segment.avg_logprob)
             compression_ratios.append(segment.compression_ratio)
             no_speech_probabilities.append(segment.no_speech_prob)
+            segment_words = segment.words or ()
+            if segment.text.strip() and not any(word.word.strip() for word in segment_words):
+                has_untimed_text = True
             words.extend(
-                Word(word.start, word.end, word.word, word.probability)
-                for word in (segment.words or [])
+                Word(word.start, word.end, word.word, word.probability) for word in segment_words
             )
 
         def mean_or_default(values: list[float], default: float) -> float:
@@ -240,5 +243,5 @@ class FasterWhisperTranscriber:
             mean_or_default(log_probabilities, 0),
             mean_or_default(compression_ratios, 1),
             mean_or_default(no_speech_probabilities, 0),
-            tuple(words),
+            () if has_untimed_text else tuple(words),
         )

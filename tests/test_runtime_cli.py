@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import wave
+from pathlib import Path
 from types import SimpleNamespace as NS
 
 import pytest
@@ -245,3 +246,91 @@ def test_ct2_checkpoint_requires_processor_json_objects(tmp_path):
     (model / "preprocessor_config.json").write_text("[]")
     with pytest.raises(ValueError, match="JSON object"):
         validate_ct2_checkpoint(model)
+
+
+def notebook_code(name, marker):
+    path = Path(__file__).resolve().parents[1] / "notebooks" / f"{name}.ipynb"
+    document = json.loads(path.read_text(encoding="utf-8"))
+    return next(
+        "".join(cell["source"])
+        for cell in document["cells"]
+        if cell["cell_type"] == "code" and marker in "".join(cell["source"])
+    )
+
+
+def test_notebook_rtf_matches_declared_longform_settings(tmp_path, monkeypatch):
+    settings = {}
+    namespace = {
+        "entries": (),
+        "REPO": tmp_path,
+        "AUDIO_ROOT": tmp_path,
+        "registry": object(),
+        "local_transcriber": object(),
+        "RUN_MODELS": False,
+        "FT_MODEL": "checkpoint",
+    }
+
+    def capture_settings(*args, **kwargs):
+        settings.update(kwargs["inference_settings"])
+        return ()
+
+    namespace["execute_matrix"] = capture_settings
+    exec(notebook_code("predict", "our_entries ="), namespace)
+    commands = []
+    manifest = NS(validate_against=lambda registry: None)
+    namespace.update(
+        {
+            "RUN_RTF": True,
+            "Manifest": NS(from_jsonl=lambda path: manifest),
+            "CT2_ROOT": tmp_path / "converted",
+            "subprocess": NS(run=lambda command, **kwargs: commands.append(command)),
+            "sys": sys,
+        }
+    )
+    monkeypatch.setattr(
+        "shono.data.audio_paths.validate_manifest_audio", lambda *args: [tmp_path / "audio.wav"]
+    )
+    exec(notebook_code("predict", "if RUN_RTF:"), namespace)
+    command = commands[0]
+    declared = settings["shono-medium:long-form-vad"]
+    for flag, key in (
+        ("--device", "device"),
+        ("--compute-type", "compute_type"),
+        ("--max-chunk-s", "max_chunk_s"),
+        ("--pad-s", "pad_s"),
+    ):
+        assert command[command.index(flag) + 1] == str(declared[key])
+
+
+@pytest.mark.parametrize("invalid_reference", [False, True])
+def test_notebook_diarization_preflight_precedes_models(tmp_path, monkeypatch, invalid_reference):
+    source = notebook_code("predict", "if RUN_DIARIZATION:")
+    audio_root = tmp_path / "audio"
+    diar_root = audio_root / "bengali-loop" / "diarization"
+    diar_root.mkdir(parents=True)
+    audio_file(diar_root)
+    reference = diar_root / "audio.csv"
+    end = 2 if invalid_reference else 1
+    reference.write_text(
+        f"start_time,end_time,speaker_id\n00:00:00,00:00:0{end},1\n", encoding="utf-8"
+    )
+    outputs = tmp_path / "outputs"
+    outputs.mkdir()
+    if not invalid_reference:
+        (outputs / "diarization.md").symlink_to(reference)
+    monkeypatch.setattr(
+        "shono.diarize.PyannoteDiarizer", lambda **kwargs: pytest.fail("model must remain unloaded")
+    )
+    namespace = {
+        "RUN_DIARIZATION": True,
+        "registry": NS(require=lambda source: NS(status="active")),
+        "AUDIO_ROOT": audio_root,
+        "REPO": tmp_path,
+        "os": os,
+        "SileroVAD": lambda: pytest.fail("VAD must remain unloaded"),
+        "RunContext": object(),
+    }
+    expected = "beyond audio" if invalid_reference else "symlink"
+    with pytest.raises(ValueError, match=expected):
+        exec(source, namespace)
+    assert reference.read_text(encoding="utf-8").endswith(f"00:00:00,00:00:0{end},1\n")

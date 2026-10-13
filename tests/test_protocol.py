@@ -1,5 +1,6 @@
 """Offline matrix identity, preflight, output preservation and notebook drivers."""
 
+import ast
 import json
 import os
 from dataclasses import replace
@@ -366,23 +367,20 @@ def test_driver_notebook_compile_and_default_off(name):
         assert "sample = paths[0]" in source and "load_loop_csv" in source
 
 
+def _notebook_local_factory(name):
+    notebook = json.loads((REPO / f"notebooks/{name}.ipynb").read_text())
+    for cell in notebook["cells"]:
+        if cell["cell_type"] != "code":
+            continue
+        for node in ast.parse("".join(cell["source"])).body:
+            if isinstance(node, ast.FunctionDef) and node.name == "local_transcriber":
+                module = ast.Module(body=[node], type_ignores=[])
+                return compile(module, f"{name}:local_transcriber", "exec")
+    raise AssertionError(f"No local_transcriber in {name}")
+
+
 @pytest.mark.parametrize("name", ["baselines", "predict"])
 def test_notebook_local_factory_rebuilds_once_from_explicit_checkpoint(tmp_path, name):
-    import ast
-
-    notebook = json.loads((REPO / f"notebooks/{name}.ipynb").read_text())
-    source = next(
-        "".join(cell["source"])
-        for cell in notebook["cells"]
-        if cell["cell_type"] == "code" and "def local_transcriber" in "".join(cell["source"])
-    )
-    tree = ast.parse(source)
-    function = next(
-        node
-        for node in tree.body
-        if isinstance(node, ast.FunctionDef) and node.name == "local_transcriber"
-    )
-    module = ast.Module(body=[function], type_ignores=[])
     checkpoint = tmp_path / "checkpoint"
     checkpoint.mkdir()
     ct2 = tmp_path / "ct2"
@@ -408,7 +406,7 @@ def test_notebook_local_factory_rebuilds_once_from_explicit_checkpoint(tmp_path,
         "LongFormTranscriber": pipeline,
         "LongFormPipelineTranscriber": lambda item: item,
     }
-    exec(compile(module, "factory", "exec"), namespace)
+    exec(_notebook_local_factory(name), namespace)
     entry = next(
         entry
         for entry in run_matrix()
@@ -427,20 +425,7 @@ def test_notebook_local_factory_rebuilds_once_from_explicit_checkpoint(tmp_path,
 
 
 @pytest.mark.parametrize("name", ["baselines", "predict"])
-def test_notebook_short_factory_uses_bounded_adapter(tmp_path, name):
-    import ast
-
-    notebook = json.loads((REPO / f"notebooks/{name}.ipynb").read_text())
-    source = next(
-        "".join(cell["source"])
-        for cell in notebook["cells"]
-        if cell["cell_type"] == "code" and "def local_transcriber" in "".join(cell["source"])
-    )
-    function = next(
-        node
-        for node in ast.parse(source).body
-        if isinstance(node, ast.FunctionDef) and node.name == "local_transcriber"
-    )
+def test_notebook_short_factory_uses_bounded_adapter(name):
     calls = []
 
     def short(model, **kwargs):
@@ -448,7 +433,7 @@ def test_notebook_short_factory_uses_bounded_adapter(tmp_path, name):
         return "short"
 
     namespace = {"ShortFormWhisperTranscriber": short}
-    exec(compile(ast.Module(body=[function], type_ignores=[]), "factory", "exec"), namespace)
+    exec(_notebook_local_factory(name), namespace)
     entry = next(
         entry
         for entry in run_matrix()

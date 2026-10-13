@@ -1,4 +1,4 @@
-"""Real input boundaries, joins and immutable path contracts."""
+"""Check metadata, dataset joins and local audio paths."""
 
 import json
 import os
@@ -63,6 +63,9 @@ def manifest(*segments, **kwargs):
         ("audio", "/a.wav"),
         ("audio", "C:/a.wav"),
         ("audio", "a\\b.wav"),
+        ("audio", "."),
+        ("audio", "./"),
+        ("audio", "./."),
         ("audio", "./a.wav"),
         ("id", None),
         ("recording_id", " "),

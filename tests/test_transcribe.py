@@ -1,5 +1,8 @@
 """Long-form pipeline: chunk at silence, drop hallucinations, merge to global time."""
 
+import sys
+from types import SimpleNamespace as NS
+
 import pytest
 
 from shono.transcribe import (
@@ -194,3 +197,75 @@ def test_short_form_runtime_is_tested_without_model_downloads():
 
     adapter = ShortFormWhisperTranscriber("local-checkpoint", device="cpu")
     assert adapter.observed_runtime_context()["generation_config"] == "unknown"
+
+
+def test_failed_whisper_device_load_does_not_leave_a_cached_model(monkeypatch):
+    from shono.transcribe import ShortFormWhisperTranscriber
+
+    models = []
+    processor = object()
+
+    class Model:
+        def to(self, device):
+            if len(models) == 1:
+                raise RuntimeError("device unavailable")
+            assert device == "cpu"
+
+        def eval(self):
+            pass
+
+    def load_model(model_id):
+        model = Model()
+        models.append(model)
+        return model
+
+    monkeypatch.setitem(sys.modules, "torch", NS(cuda=NS(is_available=lambda: False)))
+    monkeypatch.setitem(
+        sys.modules,
+        "transformers",
+        NS(
+            WhisperProcessor=NS(from_pretrained=lambda model_id: processor),
+            WhisperForConditionalGeneration=NS(from_pretrained=load_model),
+        ),
+    )
+    adapter = ShortFormWhisperTranscriber("local-checkpoint")
+    with pytest.raises(RuntimeError, match="device unavailable"):
+        adapter._load()
+    assert adapter._model is None and adapter._processor is None
+    assert adapter._load() == (models[1], processor)
+    assert adapter._load() == (models[1], processor)
+    assert len(models) == 2
+
+
+@pytest.mark.parametrize("untimed_words", [None, []])
+def test_mixed_word_timings_preserve_all_text_with_coarse_timing(monkeypatch, untimed_words):
+    from shono.transcribe import FasterWhisperTranscriber
+
+    monkeypatch.setattr("shono.transcribe.pipeline.validate_audio_window", lambda *a: 2)
+    monkeypatch.setitem(sys.modules, "librosa", NS(load=lambda *a, **kw: ([0], 16000)))
+    monkeypatch.setitem(sys.modules, "numpy", NS(isfinite=lambda audio: NS(all=lambda: True)))
+    segments = [
+        NS(
+            text="প্রথম",
+            words=[NS(start=0, end=1, word="প্রথম", probability=1)],
+            avg_logprob=-0.2,
+            compression_ratio=1,
+            no_speech_prob=0,
+        ),
+        NS(
+            text="দ্বিতীয়",
+            words=untimed_words,
+            avg_logprob=-0.2,
+            compression_ratio=1,
+            no_speech_prob=0,
+        ),
+    ]
+    adapter = FasterWhisperTranscriber("local-checkpoint", device="cpu", compute_type="int8")
+    monkeypatch.setattr(
+        adapter, "_load", lambda: NS(transcribe=lambda *a, **kw: (iter(segments), None))
+    )
+    chunk = adapter.transcribe_chunk("recording.wav", 0, 2)
+    transcript = merge_transcriptions([chunk])
+    assert transcript.text == "প্রথম দ্বিতীয়"
+    assert transcript.segments[0].timing_precision == "chunk"
+    assert chunk.words == ()

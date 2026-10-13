@@ -68,9 +68,11 @@ class DataCollatorSpeechSeq2Seq:
         labels_batch = self.processor.tokenizer.pad(label_features, return_tensors="pt")
         labels = labels_batch["input_ids"].masked_fill(labels_batch.attention_mask.ne(1), -100)
         starts = labels[:, 0] == self.decoder_start_token_id
-        if starts.any().cpu().item() and not starts.all().cpu().item():
+        any_start = starts.any().cpu().item()
+        all_start = starts.all().cpu().item()
+        if any_start and not all_start:
             raise ValueError("batch mixes decoder-start conventions")
-        if starts.all().cpu().item():
+        if all_start:
             labels = labels[:, 1:]
         batch["labels"] = labels
         return batch
@@ -88,8 +90,9 @@ def build_compute_metrics(processor: Any):
             processor.tokenizer.pad_token_id,
             predictions.predictions,
         )
-        label_ids = predictions.label_ids
-        label_ids = np.where(label_ids == -100, processor.tokenizer.pad_token_id, label_ids)
+        label_ids = np.where(
+            predictions.label_ids == -100, processor.tokenizer.pad_token_id, predictions.label_ids
+        )
         hypotheses = processor.tokenizer.batch_decode(prediction_ids, skip_special_tokens=True)
         references = processor.tokenizer.batch_decode(label_ids, skip_special_tokens=True)
         report = score(references, hypotheses)

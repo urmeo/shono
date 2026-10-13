@@ -16,10 +16,6 @@ from shono.transcribe.chunking import plan_chunks
 from shono.transcribe.convert import validate_ct2_checkpoint
 
 
-def _audio_duration_s(path: str) -> float:
-    return validate_audio_window(path)
-
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m shono.transcribe", allow_abbrev=False)
     parser.add_argument("audio", help="path to the recording")
@@ -40,23 +36,15 @@ def _output_path(path: Path, audio: Path, model: Path) -> Path:
     if path.suffix.lower() != ".json":
         raise ValueError("--json destination must use a .json extension")
     try:
-        target = path.resolve()
         package = Path(__file__).resolve().parents[1]
         model = model.resolve()
         protected = [audio.resolve(), *package.rglob("*.py"), *model.rglob("*")]
         project = package.parent.parent
         if (project / "pyproject.toml").is_file():
             protected.extend(source_files(project))
-        validate_output_destinations((path,), protected_paths=protected)
+        target = validate_output_destinations((path,), protected_paths=protected)[0]
         if target.is_relative_to(model) or target.is_relative_to(package):
             raise ValueError("--json destination cannot overwrite model or package sources")
-        for source in protected:
-            if target == source.resolve() or (
-                target.exists() and source.is_file() and target.samefile(source)
-            ):
-                raise ValueError("--json destination aliases an input or source file")
-        if target.exists() and not target.is_file():
-            raise ValueError("--json destination must be a file")
         parent = target.parent
         while not parent.exists():
             parent = parent.parent
@@ -101,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.max_chunk_s > 30:
             raise ValueError("Whisper windows must be <= 30 s including padding")
         output = _output_path(args.json, audio, model) if args.json else None
-        duration = _audio_duration_s(str(audio))
+        duration = validate_audio_window(audio)
         from shono.transcribe import FasterWhisperTranscriber, LongFormTranscriber, SileroVAD
 
         pipeline = LongFormTranscriber(

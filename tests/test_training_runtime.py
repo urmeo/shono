@@ -43,8 +43,6 @@ class Tensor:
 
     def __getitem__(self, index):
         _, column = index
-        if isinstance(column, int):
-            return Tensor([row[column] for row in self.rows])
         return Tensor([row[column] for row in self.rows])
 
     def __eq__(self, value):

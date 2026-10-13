@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
 from threading import Lock
 from typing import Protocol, runtime_checkable
 
-from shono.data.audio_paths import validate_audio_window, validate_manifest_audio
+from shono.data.audio_paths import audio_duration, validate_audio_window, validate_manifest_audio
 from shono.data.manifest import Manifest
 from shono.eval.report import Predictions
 from shono.provenance import RunContext, safe_metadata
@@ -76,9 +77,10 @@ def preflight_manifest(
     duration_of: Callable[[Path], float] | None = None,
 ) -> tuple[tuple[Path, ...], float]:
     """Validate all selected files/windows and return paths plus actual audio hours."""
-    paths = validate_manifest_audio(manifest, audio_root, duration_of=duration_of)
+    read_duration = cache(duration_of or audio_duration)
+    paths = validate_manifest_audio(manifest, audio_root, duration_of=read_duration)
     seconds = [
-        validate_audio_window(path, seg.start_s, seg.duration_s, duration_of=duration_of)
+        validate_audio_window(path, seg.start_s, seg.duration_s, duration_of=read_duration)
         for path, seg in zip(paths, manifest.segments, strict=True)
     ]
     total = finite_sum(seconds, "manifest audio workload")

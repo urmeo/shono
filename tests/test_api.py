@@ -5,7 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from shono.api import ApiTranscriber, BudgetError, BudgetGuard, run_over_manifest
+from shono.api import (
+    ApiTranscriber,
+    BudgetError,
+    BudgetGuard,
+    preflight_manifest,
+    run_over_manifest,
+)
 from shono.data.manifest import Manifest
 
 _TINY = Path(__file__).parent / "fixtures" / "tiny_manifest.jsonl"
@@ -43,6 +49,20 @@ def test_run_over_manifest_covers_every_segment(audio_root):
     assert len(api.calls) == len(manifest.segments)
     assert Path(api.calls[0][0]) == audio_root / "rec-loop-01.wav"
     assert preds.input_paths == tuple(call[0] for call in api.calls)
+
+
+def test_preflight_reads_each_recording_duration_once(audio_root):
+    inspected = []
+
+    def read_duration(path):
+        inspected.append(path)
+        return 20
+
+    paths, hours = preflight_manifest(
+        Manifest.from_jsonl(_TINY), audio_root=audio_root, duration_of=read_duration
+    )
+    assert inspected == list(dict.fromkeys(paths))
+    assert hours == pytest.approx(16.8 / 3600)
 
 
 def test_budget_guard_allows_within_free_allowance(audio_root):

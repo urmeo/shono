@@ -22,7 +22,7 @@ def test_point_estimate_matches_hand_count():
     assert result.n_segments == 4
 
 
-def test_resampling_is_genuinely_blockwise():
+def test_resampling_keeps_recording_blocks_together():
     result = blockwise_bootstrap_ci(
         _RECORDS, metric="wer", n_resamples=500, seed=7, keep_samples=True
     )

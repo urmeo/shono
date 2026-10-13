@@ -39,10 +39,10 @@ def script_counts(text: str) -> dict[str, int]:
 
 
 def bengali_fraction(text: str) -> float:
-    """Fraction of letters that are Bengali (vs Latin); 1.0 = pure Bengali, 0.0 = pure Latin."""
+    """Bengali share of Bengali letters/marks and ASCII Latin letters; defaults to 1.0."""
     counts = script_counts(text)
-    letters = counts["bengali"] + counts["latin"]
-    return counts["bengali"] / letters if letters else 1.0
+    script_characters = counts["bengali"] + counts["latin"]
+    return counts["bengali"] / script_characters if script_characters else 1.0
 
 
 def is_code_switched(text: str) -> bool:

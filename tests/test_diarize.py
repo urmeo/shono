@@ -88,6 +88,18 @@ def test_empty_reference_rejected():
         der([], [_s(0, 1, "A")])
 
 
+@pytest.mark.parametrize("start,end", [(1e16 + 2, 1e16 + 4), (1e-323, 1.5e-323)])
+def test_adjacent_float_boundaries_retain_reference_speech(start, end):
+    reference = [_s(start, end, "A")]
+    missed = der(reference, [], DERConfig(collar_s=0))
+    assert missed.der == 1
+    assert missed.total_ref_s == end - start
+    assert missed.missed_s == end - start
+    perfect = der(reference, [_s(start, end, "B")], DERConfig(collar_s=0))
+    assert perfect.der == 0
+    assert perfect.mapping == {"B": "A"}
+
+
 def test_der_is_nan_when_reference_fully_collar_excluded():
     import math
 

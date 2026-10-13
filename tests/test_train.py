@@ -1,8 +1,4 @@
-"""Training plumbing: recipe validation, resume logic, example selection, experiment record.
-
-Everything torch-free is tested here; the one-step CPU smoke runs only where torch
-and transformers are installed (the Kaggle image), and skips cleanly otherwise.
-"""
+"""Check training settings, resume selection, examples and experiment records."""
 
 import json
 from datetime import UTC, datetime
@@ -93,6 +89,31 @@ def test_resume_picks_latest_complete_checkpoint(tmp_path):
 
 def test_incomplete_checkpoint_never_selected(tmp_path):
     _make_checkpoint(tmp_path, 700, complete=False)
+    assert find_latest_checkpoint(tmp_path) is None
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        '{"global_step": 0, "global_step": 700}',
+        '{"global_step": 700, "global_step": 700}',
+        '{"global_step": 699}',
+        '{"global_step": 700.0}',
+        "[]",
+        "{",
+    ],
+)
+def test_invalid_checkpoint_state_never_selected(tmp_path, state):
+    checkpoint = _make_checkpoint(tmp_path, 700)
+    (checkpoint / "trainer_state.json").write_text(state, encoding="utf-8")
+    assert find_latest_checkpoint(tmp_path) is None
+
+
+@pytest.mark.parametrize("name", ["checkpoint-700\n", "checkpoint-700-old", "checkpoint--1"])
+def test_checkpoint_name_must_match_saved_step(tmp_path, name):
+    checkpoint = tmp_path / name
+    checkpoint.mkdir()
+    (checkpoint / "trainer_state.json").write_text('{"global_step": 700}', encoding="utf-8")
     assert find_latest_checkpoint(tmp_path) is None
 
 
