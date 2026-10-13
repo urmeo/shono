@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1260" viewBox="0 0 1280 1260" fill="none" role="img" aria-labelledby="pipeline-title pipeline-description">
+<title id="pipeline-title">Shono pipeline: Bengali audio, transcripts, and evaluation</title>
+<desc id="pipeline-description">Prepare local speech datasets by checking source terms, audio paths, timing, and train/test overlap. Build separate train, development, and test manifests. Use an existing Whisper checkpoint or optionally train on the train split with development evaluation using PyTorch and Transformers. Convert weights to CTranslate2 for long recordings. For each long recording, detect speech with Silero, plan chunks no longer than 30 seconds including padding, transcribe with faster-whisper, filter low-confidence chunks, and merge global timestamps. Optionally use pyannote turns intersected with detected speech to label each transcript segment by its dominant speaker. Short clips use Transformers directly. Compare complete predictions against held-out references using raw and normalized word and character error rates. Confidence intervals require at least two recording or speaker blocks. Base, fine-tuned, and optional cloud API predictions feed reports; model cards use those reports. The repository has no project-trained checkpoint or measured model accuracy.</desc>
+<rect width="1280" height="1260" fill="#14191C"/>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 9 5 1 9Z" fill="#55C4E0"/></marker>
+<marker id="optional-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 9 5 1 9Z" fill="#F08B79"/></marker>
+<marker id="reference-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 9 5 1 9Z" fill="#A8B5BD"/></marker>
+</defs>
+<g font-family="Inter, Arial, sans-serif">
+<text x="48" y="64" fill="#E7EDED" font-size="32" font-weight="600">SHONO PIPELINE</text>
+<text x="48" y="104" fill="#A8B5BD" font-size="23" font-weight="400">Bengali audio → transcripts → evaluation</text>
+<path d="M48 126H1232" stroke="#A8B5BD" stroke-width="1.5"/>
+<rect x="24" y="140" width="1232" height="232" rx="8" fill="#1B2327" stroke="#303B41" stroke-width="1.5"/>
+<text x="48" y="177" fill="#A8B5BD" font-size="18" font-weight="600" letter-spacing="1.3">01  PREPARE DATA + CHOOSE WEIGHTS</text>
+<rect x="24" y="420" width="1232" height="480" rx="8" fill="#1B2327" stroke="#303B41" stroke-width="1.5"/>
+<text x="48" y="457" fill="#A8B5BD" font-size="18" font-weight="600" letter-spacing="1.3">02  LONG AUDIO TO TRANSCRIPT</text>
+<rect x="24" y="944" width="1232" height="240" rx="8" fill="#1B2327" stroke="#303B41" stroke-width="1.5"/>
+<text x="48" y="981" fill="#A8B5BD" font-size="18" font-weight="600" letter-spacing="1.3">03  EVALUATE HELD-OUT AUDIO</text>
+<path d="M314 270H352" stroke="#55C4E0" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M762 270H808" stroke="#F08B79" stroke-width="2" stroke-linejoin="round" marker-end="url(#optional-arrow)" stroke-dasharray="7 6"/>
+<path d="M1024 338V390H804V478" stroke="#55C4E0" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M404 338V390H12V1082H40" stroke="#A8B5BD" stroke-width="2" stroke-linejoin="round" marker-end="url(#reference-arrow)"/>
+<text x="48" y="412" fill="#A8B5BD" font-size="17" font-weight="400">held-out reference text</text>
+<text x="836" y="382" fill="#55C4E0" font-size="17" font-weight="400">CT2 weights for long audio</text>
+<path d="M298 560H336" stroke="#55C4E0" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M626 560H672" stroke="#55C4E0" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M930 560H976" stroke="#55C4E0" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M1108 636V720" stroke="#55C4E0" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M484 636V720" stroke="#F08B79" stroke-width="2" stroke-linejoin="round" marker-end="url(#optional-arrow)" stroke-dasharray="7 6"/>
+<text x="502" y="686" fill="#F08B79" font-size="16" font-weight="400">audio + speech regions</text>
+<path d="M626 796H672" stroke="#F08B79" stroke-width="2" stroke-linejoin="round" marker-end="url(#optional-arrow)" stroke-dasharray="7 6"/>
+<path d="M804 864V1006" stroke="#55C4E0" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="822" y="928" fill="#55C4E0" font-size="17" font-weight="400">predictions</text>
+<path d="M298 1082H336" stroke="#55C4E0" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M930 1082H976" stroke="#55C4E0" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<g id="datasets">
+<rect x="48" y="202" width="264" height="136" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
+<text x="70" y="241" fill="#E7EDED" font-size="24" font-weight="600">Speech datasets</text>
+<text x="70" y="277" fill="#A8B5BD" font-size="20" font-weight="400">Audio + reference text</text>
+<text x="70" y="304" fill="#A8B5BD" font-size="20" font-weight="400">Local source indexes</text>
+</g>
+<g id="manifests">
+<rect x="360" y="202" width="400" height="136" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
+<text x="382" y="241" fill="#E7EDED" font-size="24" font-weight="600">Validate + build manifests</text>
+<text x="382" y="276" fill="#A8B5BD" font-size="20" font-weight="400">Source terms · paths · timing</text>
+<text x="382" y="301" fill="#A8B5BD" font-size="20" font-weight="400">Separate train / dev / test</text>
+<text x="382" y="326" fill="#A8B5BD" font-size="18" font-weight="400">Review train / test overlap</text>
+</g>
+<g id="checkpoint">
+<rect x="816" y="202" width="416" height="136" rx="8" fill="#1B2327" stroke="#55C4E0" stroke-width="2"/>
+<text x="838" y="241" fill="#E7EDED" font-size="24" font-weight="600">Whisper checkpoint</text>
+<text x="838" y="276" fill="#A8B5BD" font-size="20" font-weight="400">Existing weights, or optional fine-tune</text>
+<text x="838" y="301" fill="#A8B5BD" font-size="20" font-weight="400">PyTorch + Transformers</text>
+<text x="838" y="326" fill="#F08B79" font-size="18" font-weight="400">Train on train; evaluate on dev</text>
+</g>
+<g id="recording">
+<rect x="48" y="486" width="248" height="150" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
+<text x="70" y="525" fill="#E7EDED" font-size="24" font-weight="600">Audio recording</text>
+<text x="70" y="561" fill="#A8B5BD" font-size="19" font-weight="400">New or evaluation audio</text>
+<text x="70" y="588" fill="#A8B5BD" font-size="20" font-weight="400">Bengali speech</text>
+</g>
+<g id="speech-chunks">
+<rect x="344" y="486" width="280" height="150" rx="8" fill="#1B2327" stroke="#55C4E0" stroke-width="2"/>
+<text x="366" y="525" fill="#E7EDED" font-size="24" font-weight="600">Find speech + split</text>
+<text x="366" y="560" fill="#A8B5BD" font-size="20" font-weight="400">Silero speech detection</text>
+<text x="366" y="585" fill="#55C4E0" font-size="21" font-weight="400">Chunks ≤30 s</text>
+<text x="366" y="610" fill="#A8B5BD" font-size="18" font-weight="400">including padding</text>
+</g>
+<g id="transcribe">
+<rect x="680" y="486" width="248" height="150" rx="8" fill="#1B2327" stroke="#55C4E0" stroke-width="2"/>
+<text x="702" y="525" fill="#E7EDED" font-size="24" font-weight="600">Transcribe</text>
+<text x="702" y="560" fill="#55C4E0" font-size="21" font-weight="400">Whisper</text>
+<text x="702" y="585" fill="#A8B5BD" font-size="20" font-weight="400">faster-whisper</text>
+<text x="702" y="610" fill="#A8B5BD" font-size="18" font-weight="400">CTranslate2 runtime</text>
+</g>
+<g id="filter-merge">
+<rect x="984" y="486" width="248" height="150" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
+<text x="1006" y="525" fill="#E7EDED" font-size="24" font-weight="600">Filter + merge</text>
+<text x="1006" y="560" fill="#A8B5BD" font-size="19" font-weight="400">Reject weak chunks</text>
+<text x="1006" y="585" fill="#A8B5BD" font-size="19" font-weight="400">Merge into global time</text>
+<text x="1006" y="610" fill="#A8B5BD" font-size="18" font-weight="400">Keep warnings</text>
+</g>
+<g id="speaker-labels">
+<rect x="344" y="728" width="280" height="136" rx="8" fill="#1B2327" stroke="#F08B79" stroke-width="2" stroke-dasharray="7 6"/>
+<text x="366" y="767" fill="#E7EDED" font-size="24" font-weight="600">Find speakers</text>
+<text x="366" y="802" fill="#F08B79" font-size="20" font-weight="400">pyannote · optional</text>
+<text x="366" y="827" fill="#A8B5BD" font-size="17.5" font-weight="400">Clip turns to detected speech</text>
+<text x="366" y="852" fill="#A8B5BD" font-size="17.5" font-weight="400">Speaker turns + time ranges</text>
+</g>
+<g id="transcript">
+<rect x="680" y="728" width="552" height="136" rx="8" fill="#1B2327" stroke="#55C4E0" stroke-width="2"/>
+<text x="702" y="767" fill="#E7EDED" font-size="24" font-weight="600">Transcript + timestamps</text>
+<text x="702" y="802" fill="#A8B5BD" font-size="20" font-weight="400">Text / JSON · warnings for coarse timing</text>
+<text x="702" y="827" fill="#A8B5BD" font-size="19.5" font-weight="400">Optional labels: dominant speaker per segment</text>
+<text x="702" y="852" fill="#A8B5BD" font-size="18.5" font-weight="400">Local Gradio demo · word alignment unverified</text>
+</g>
+<text x="48" y="884" fill="#A8B5BD" font-size="18" font-weight="400">Short clips use Whisper via Transformers directly.</text>
+<g id="references">
+<rect x="48" y="1014" width="248" height="136" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
+<text x="70" y="1053" fill="#E7EDED" font-size="22" font-weight="600">Held-out references</text>
+<text x="70" y="1089" fill="#A8B5BD" font-size="19" font-weight="400">Read · long-form ·</text>
+<text x="70" y="1116" fill="#A8B5BD" font-size="19" font-weight="400">Bangla–English speech</text>
+</g>
+<g id="evaluation">
+<rect x="344" y="1014" width="584" height="136" rx="8" fill="#1B2327" stroke="#55C4E0" stroke-width="2"/>
+<text x="366" y="1053" fill="#E7EDED" font-size="24" font-weight="600">Score + compare systems</text>
+<text x="366" y="1088" fill="#55C4E0" font-size="21" font-weight="400">Word + character error rates · WER / CER</text>
+<text x="366" y="1113" fill="#A8B5BD" font-size="19" font-weight="400">Raw / normalized · compare Whisper + optional APIs</text>
+<text x="366" y="1138" fill="#A8B5BD" font-size="18" font-weight="400">95% intervals with ≥2 recording or speaker blocks</text>
+</g>
+<g id="reports">
+<rect x="984" y="1014" width="248" height="136" rx="8" fill="#1B2327" stroke="#55C4E0" stroke-width="2"/>
+<text x="1006" y="1053" fill="#E7EDED" font-size="24" font-weight="600">Reports</text>
+<text x="1006" y="1088" fill="#A8B5BD" font-size="20" font-weight="400">JSON + Markdown</text>
+<text x="1006" y="1113" fill="#A8B5BD" font-size="18" font-weight="400">Inputs, settings + limits</text>
+<text x="1006" y="1138" fill="#A8B5BD" font-size="18" font-weight="400">Model card from report</text>
+</g>
+<text x="48" y="1221" fill="#A8B5BD" font-size="18" font-weight="400">Prototype · no project-trained checkpoint or measured model accuracy.</text>
+</g>
+</svg>
