@@ -17,8 +17,6 @@ from shono.train.config import TrainConfig
 from shono.train.data import build_examples
 from shono.train.output import validate_training_output
 
-TARGET_SAMPLE_RATE = 16_000
-
 
 def to_training_arguments(config: TrainConfig, **overrides: Any):
     """Map :class:`TrainConfig` to a ``Seq2SeqTrainingArguments`` (transformers required)."""
@@ -79,20 +77,22 @@ class DataCollatorSpeechSeq2Seq:
 
 
 def build_compute_metrics(processor: Any):
-    """A ``compute_metrics`` that scores with the frozen normalizer, not Whisper's."""
+    """Build a metrics callback using Shono's versioned normalizer."""
     from shono.eval import score
 
-    def compute_metrics(pred) -> dict:
+    def compute_metrics(predictions) -> dict:
         import numpy as np
 
-        pred_ids = np.where(
-            pred.predictions == -100, processor.tokenizer.pad_token_id, pred.predictions
+        prediction_ids = np.where(
+            predictions.predictions == -100,
+            processor.tokenizer.pad_token_id,
+            predictions.predictions,
         )
-        label_ids = pred.label_ids
+        label_ids = predictions.label_ids
         label_ids = np.where(label_ids == -100, processor.tokenizer.pad_token_id, label_ids)
-        pred_str = processor.tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
-        ref_str = processor.tokenizer.batch_decode(label_ids, skip_special_tokens=True)
-        report = score(ref_str, pred_str)
+        hypotheses = processor.tokenizer.batch_decode(prediction_ids, skip_special_tokens=True)
+        references = processor.tokenizer.batch_decode(label_ids, skip_special_tokens=True)
+        report = score(references, hypotheses)
         return {"wer": report.wer_normalized, "cer": report.cer_normalized}
 
     return compute_metrics
@@ -109,8 +109,7 @@ def run_training(
     text_decisions: Mapping[str, Mapping[str, str]] | None = None,
     duration_of: DurationFn | None = None,
 ):
-    """Validate source manifests, train, evaluate and save. No pretrained calls occur before data
-    preflight."""
+    """Validate manifests before loading a model, then train, evaluate and save."""
     if not isinstance(config, TrainConfig):
         raise ValueError("config must be TrainConfig")
     all_manifests = [*train_manifests, *eval_manifests, *held_out_manifests]
@@ -230,7 +229,7 @@ def run_training(
 
 
 def smoke_step(output_dir: str | Path) -> dict:
-    """Check CPU plumbing with a randomly initialized tiny model."""
+    """Run a CPU training step and reload a randomly initialized tiny model."""
     import torch
     from transformers import WhisperConfig, WhisperForConditionalGeneration
 

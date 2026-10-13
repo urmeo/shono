@@ -1,9 +1,4 @@
-"""Speaker diarization: DER scoring, the diarizer interface, and speaker attribution.
-
-DER scoring, VAD-intersection, and speaker attribution are pure and imported
-eagerly; the pyannote implementation keeps its torch import inside the class, so
-this package loads without a GPU.
-"""
+"""Speaker attribution, diarization scoring, and a lazy pyannote adapter."""
 
 from shono.diarize.attribute import attribute_speakers
 from shono.diarize.der import (

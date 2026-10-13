@@ -13,8 +13,8 @@ from shono.demo.model_card import render_model_card
 from shono.output_paths import source_files, validate_output_destinations, write_text_atomic
 
 _LIMITATIONS = [
-    "GPU/model and cloud quality remain unmeasured until actual predictions are supplied.",
-    "Speaker attribution follows transcription segments rather than word-level identities.",
+    "Scores apply only to the systems, data slices and conditions recorded in the report.",
+    "Speaker labels apply to transcript segments, not individual words.",
     "Code-switch scoring does not credit cross-script transliteration equivalence.",
 ]
 

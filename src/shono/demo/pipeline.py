@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from itertools import groupby
+
 from shono.diarize.attribute import attribute_speakers
 from shono.diarize.diarizer import Diarizer, vad_intersection
 from shono.transcribe.pipeline import LongFormTranscriber
@@ -28,32 +30,15 @@ def _fmt_time(seconds: float) -> str:
 
 
 def format_transcript(transcript: Transcript) -> str:
-    """Render a transcript as readable lines, merging consecutive same-speaker segments."""
+    """Merge consecutive segments from the same speaker and include timing limits."""
     lines: list[str] = []
-    buffer: list[str] = []
-    cur_speaker: str | None = None
-    cur_start = 0.0
-    prev_end = 0.0
-
-    def flush(end: float) -> None:
-        if not buffer:
-            return
-        who = cur_speaker or "Speaker"
-        stamp = f"[{_fmt_time(cur_start)}–{_fmt_time(end)}]"
-        lines.append(f"**{who}** {stamp}: {' '.join(buffer)}")
-
-    for seg in transcript.segments:
-        if seg.speaker != cur_speaker and buffer:
-            flush(prev_end)
-            buffer = []
-        if not buffer:
-            cur_speaker = seg.speaker
-            cur_start = seg.start_s
-            prev_end = seg.end_s
-        buffer.append(seg.text)
-        prev_end = max(prev_end, seg.end_s)
-    if buffer:
-        flush(prev_end)
+    for speaker, group in groupby(transcript.segments, key=lambda segment: segment.speaker):
+        segments = list(group)
+        start = segments[0].start_s
+        end = max(segment.end_s for segment in segments)
+        stamp = f"[{_fmt_time(start)}–{_fmt_time(end)}]"
+        text = " ".join(segment.text for segment in segments)
+        lines.append(f"**{speaker or 'Speaker'}** {stamp}: {text}")
     notes = list(transcript.warnings)
     if any(s.timing_precision == "chunk" for s in transcript.segments):
         notes.append("Some timings describe complete chunks; word timings were unavailable.")

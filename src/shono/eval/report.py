@@ -114,13 +114,13 @@ class Predictions:
         if not lines:
             raise ValueError(f"predictions file {path} is empty")
         header = json_object(lines[0], str(path))
-        if not isinstance(header, dict) or not isinstance(header.get("predictions"), dict):
+        if not isinstance(header.get("predictions"), dict):
             raise ValueError(f"predictions file {path} must start with a predictions header")
         meta = header["predictions"]
         hypotheses = {}
         for lineno, line in enumerate(lines[1:], start=2):
             record = json_object(line, f"{path}:{lineno}")
-            if not isinstance(record, dict) or "id" not in record or "hypothesis" not in record:
+            if "id" not in record or "hypothesis" not in record:
                 raise ValueError(f"invalid prediction record on line {lineno} of {path}")
             sid = _text(record["id"], "prediction id")
             if sid in hypotheses:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import random
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from shono.data.license import LicenseRegistry
 from shono.data.manifest import Manifest, Segment
@@ -115,24 +115,11 @@ def build_examples(
     if n_timestamped:
         rng = random.Random(seed)
         chosen = set(rng.sample(range(len(kept)), n_timestamped))
-        kept = [(e if i not in chosen else _with_timestamps(e)) for i, e in enumerate(kept)]
+        kept = [
+            replace(example, use_timestamps=True) if i in chosen else example
+            for i, example in enumerate(kept)
+        ]
     return kept
-
-
-def _with_timestamps(example: TrainExample) -> TrainExample:
-    return TrainExample(
-        audio=example.audio,
-        text=example.text,
-        duration_s=example.duration_s,
-        recording_id=example.recording_id,
-        source=example.source,
-        start_s=example.start_s,
-        use_timestamps=True,
-        id=example.id,
-        split=example.split,
-        language=example.language,
-        audio_sha256=example.audio_sha256,
-    )
 
 
 def total_hours(examples: Sequence[TrainExample]) -> float:

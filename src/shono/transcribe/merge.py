@@ -30,15 +30,16 @@ def merge_transcriptions(chunks: list[ChunkTranscription]) -> Transcript:
                 continue
             if fresh[0].start_s < covered_until - _EPS:
                 warnings.append("Overlapping word boundaries may retain a repeated word.")
+            end_s = max(word.end_s for word in fresh)
             segments.append(
                 TranscriptSegment(
                     fresh[0].start_s,
-                    max(w.end_s for w in fresh),
+                    end_s,
                     " ".join(w.word.strip() for w in fresh),
                     timing_precision="word",
                 )
             )
-            covered_until = max(covered_until, max(w.end_s for w in fresh))
+            covered_until = max(covered_until, end_s)
         else:
             text = chunk.text.strip()
             if not text:

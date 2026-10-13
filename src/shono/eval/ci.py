@@ -5,9 +5,9 @@ import random
 from collections import defaultdict
 from dataclasses import dataclass
 
-from shono.eval import score as _score
+from shono.eval.score import cer, wer
 
-_METRICS = {"wer": _score.wer, "cer": _score.cer}
+_METRICS = {"wer": wer, "cer": cer}
 _MIN_RESAMPLES = 100
 
 
@@ -28,8 +28,12 @@ class BootstrapCI:
 
 def validate_bootstrap_settings(n_resamples: int, confidence: float, seed: int) -> None:
     """Validate the bootstrap protocol before any work."""
-    if isinstance(n_resamples, bool) or not isinstance(n_resamples, int) or n_resamples < 100:
-        raise ValueError("n_resamples must be an integer >= 100")
+    if (
+        isinstance(n_resamples, bool)
+        or not isinstance(n_resamples, int)
+        or n_resamples < _MIN_RESAMPLES
+    ):
+        raise ValueError(f"n_resamples must be an integer >= {_MIN_RESAMPLES}")
     if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
         raise ValueError("confidence must be a finite real number in (0, 1)")
     if not 0 < confidence < 1 or not math.isfinite(confidence):

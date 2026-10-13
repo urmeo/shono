@@ -7,12 +7,12 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 import jiwer
-from jiwer.transforms import Compose, ReduceToListOfListOfChars, ReduceToListOfListOfWords
+from jiwer.transforms import ReduceToListOfListOfChars, ReduceToListOfListOfWords
 
 from shono.eval.normalize import NORMALIZER_VERSION, normalize
 
-_WER_TRANSFORM = Compose([ReduceToListOfListOfWords()])
-_CER_TRANSFORM = Compose([ReduceToListOfListOfChars()])
+_WER_TRANSFORM = ReduceToListOfListOfWords()
+_CER_TRANSFORM = ReduceToListOfListOfChars()
 
 
 def _canonicalize_whitespace(text: str) -> str:

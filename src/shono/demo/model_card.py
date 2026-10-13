@@ -7,10 +7,9 @@ import math
 from collections.abc import Mapping, Sequence
 
 
-def _text(value: object, name: str) -> str:
+def _validate_text(value: object, name: str) -> None:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{name} must be a nonempty string; use 'unknown' when unresolved")
-    return value
 
 
 def _wer_str(cell: Mapping | None) -> str:
@@ -56,7 +55,7 @@ def render_model_card(
     license_table: str = "",
     limitations: Sequence[str] = (),
 ) -> str:
-    """Quote per-cell WER and policy; report scores do not establish training status."""
+    """Render reported WER, scoring policies, and supplied training and license metadata."""
     for name, value in (
         ("model_id", model_id),
         ("system", system),
@@ -65,7 +64,7 @@ def render_model_card(
         ("base-weight license", base_model_license),
         ("repo_url", repo_url),
     ):
-        _text(value, name)
+        _validate_text(value, name)
     if not isinstance(training_status, str) or training_status not in {
         "pending",
         "trained",
@@ -117,8 +116,8 @@ def render_model_card(
         "",
         "## Results",
         "",
-        "WER is quoted from the supplied report. Each row states its scoring policy; "
-        "pending has no measured score.",
+        "Word error rate (WER; lower is better) comes from the supplied report. "
+        "Each row states its scoring policy. Pending rows have no measured score.",
         "",
         "| Slice | WER (normalized, 95% CI when available) | Policy |",
         "|---|---|---|",
@@ -140,13 +139,13 @@ def render_model_card(
     if limitations:
         lines += ["", "## Limits", "", *[f"- {item}" for item in limitations]]
     if license_table:
-        lines += ["", "## Declared data sources", "", license_table]
-    lines += [
-        "",
-        "## License",
-        "",
-        "Repository code is MIT. Model weights, base weights and data "
-        "have separate stated licenses.",
-        "",
-    ]
-    return "\n".join(lines)
+        lines += [
+            "",
+            "## Data sources",
+            "",
+            "The source registry records licenses and usage status. "
+            "It does not identify which data trained these weights.",
+            "",
+            license_table,
+        ]
+    return "\n".join(lines) + "\n"

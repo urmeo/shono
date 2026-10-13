@@ -8,9 +8,8 @@ from time import perf_counter
 from typing import Protocol, runtime_checkable
 
 from shono.data.audio_paths import validate_audio_window
-from shono.transcribe._validation import count, finite_real, probability
+from shono.transcribe._validation import count, finite_real, probability, time_bounds
 from shono.transcribe.chunking import plan_chunks, union_speech
-from shono.transcribe.convert import validate_ct2_checkpoint
 from shono.transcribe.hallucination import FilterResult, HallucinationConfig, filter_hallucinations
 from shono.transcribe.merge import merge_transcriptions
 from shono.transcribe.types import ChunkTranscription, SpeechSegment, Transcript, Word
@@ -187,6 +186,8 @@ class FasterWhisperTranscriber:
 
     def _load(self):
         if self._model is None:
+            from shono.transcribe.convert import validate_ct2_checkpoint
+
             model_path = validate_ct2_checkpoint(self.model_dir)
             from faster_whisper import WhisperModel
 
@@ -196,8 +197,6 @@ class FasterWhisperTranscriber:
         return self._model
 
     def transcribe_chunk(self, audio_path: str, start_s: float, end_s: float) -> ChunkTranscription:
-        from shono.transcribe._validation import time_bounds
-
         time_bounds(start_s, end_s, "transcription window")
         if end_s - start_s > 30:
             raise ValueError("Whisper audio windows must be <= 30 s")
@@ -216,23 +215,30 @@ class FasterWhisperTranscriber:
             word_timestamps=True,
             condition_on_previous_text=False,
         )
-        texts, words, logprobs, comps, nosp = [], [], [], [], []
-        for seg in segments:
-            texts.append(seg.text)
-            logprobs.append(seg.avg_logprob)
-            comps.append(seg.compression_ratio)
-            nosp.append(seg.no_speech_prob)
-            words.extend(Word(w.start, w.end, w.word, w.probability) for w in (seg.words or []))
+        texts: list[str] = []
+        words: list[Word] = []
+        log_probabilities: list[float] = []
+        compression_ratios: list[float] = []
+        no_speech_probabilities: list[float] = []
+        for segment in segments:
+            texts.append(segment.text)
+            log_probabilities.append(segment.avg_logprob)
+            compression_ratios.append(segment.compression_ratio)
+            no_speech_probabilities.append(segment.no_speech_prob)
+            words.extend(
+                Word(word.start, word.end, word.word, word.probability)
+                for word in (segment.words or [])
+            )
 
-        def mean(values, default):
+        def mean_or_default(values: list[float], default: float) -> float:
             return sum(values) / len(values) if values else default
 
         return ChunkTranscription(
             start_s,
             end_s,
             " ".join(t.strip() for t in texts).strip(),
-            mean(logprobs, 0),
-            mean(comps, 1),
-            mean(nosp, 0),
+            mean_or_default(log_probabilities, 0),
+            mean_or_default(compression_ratios, 1),
+            mean_or_default(no_speech_probabilities, 0),
             tuple(words),
         )

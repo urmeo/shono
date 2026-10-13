@@ -4,20 +4,21 @@ from __future__ import annotations
 
 import csv
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import replace
 from pathlib import Path
 
-from shono.data.audio_paths import audio_duration, file_sha256, resolved_path, validate_audio_paths
+from shono.data.audio_paths import (
+    DurationFn,
+    file_sha256,
+    resolved_path,
+    validate_audio_paths,
+)
+from shono.data.audio_paths import audio_duration as duration_from_audio
 from shono.data.manifest import Manifest, Segment
 from shono.data.validation import audio_reference, json_object, real_number, text_value
 
 FLEURS_SAMPLE_RATE = 16_000
-DurationFn = Callable[[Path], float]
-
-
-def duration_from_audio(path: Path) -> float:
-    return audio_duration(path)
 
 
 def build_manifest(

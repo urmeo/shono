@@ -50,7 +50,7 @@ class DatasetLicense:
 
 
 class LicenseRegistry:
-    """Immutable lookup of :class:`DatasetLicense` records, keyed by source id."""
+    """Look up dataset license records by source ID."""
 
     def __init__(self, licenses: Iterable[DatasetLicense], as_of: str = "") -> None:
         text_value(as_of, "registry as_of", empty=True)
@@ -126,13 +126,9 @@ class LicenseRegistry:
         rows = []
         for lic in sorted(self._by_id.values(), key=lambda x: (order.get(x.status, 9), x.id)):
             hours = "unknown" if lic.hours is None else f"{lic.hours:g}"
-            audio = (
-                "unknown"
-                if lic.redistributable_audio is None
-                else "yes"
-                if lic.redistributable_audio
-                else "no"
-            )
+            audio = "unknown"
+            if lic.redistributable_audio is not None:
+                audio = "yes" if lic.redistributable_audio else "no"
             link = f"[{lic.name}]({lic.url})" if lic.url else lic.name
             rows.append(
                 f"| {link} | {hours} | {lic.domain} | {lic.license} | {audio} | {lic.status} |"

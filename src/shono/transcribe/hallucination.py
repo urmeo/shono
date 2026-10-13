@@ -37,7 +37,7 @@ class HallucinationConfig:
 
 @dataclass(frozen=True)
 class Dropped:
-    """A chunk removed as a probable hallucination, with the reason(s) it tripped."""
+    """A rejected chunk and its threshold violations."""
 
     chunk: ChunkTranscription
     reasons: tuple[str, ...]
@@ -45,7 +45,7 @@ class Dropped:
 
 @dataclass(frozen=True)
 class FilterResult:
-    """The surviving chunks and the ones dropped (never silently discarded)."""
+    """Accepted chunks and rejected chunks with reasons."""
 
     kept: tuple[ChunkTranscription, ...]
     dropped: tuple[Dropped, ...]

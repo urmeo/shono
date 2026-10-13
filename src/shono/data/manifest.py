@@ -130,12 +130,7 @@ class Manifest:
         return [(seg.recording_id, seg.text, hypotheses[seg.id]) for seg in self.segments]
 
     def validate_against(self, registry: LicenseRegistry, *, training: bool = False) -> None:
-        """Assert the source is registered and permitted for this split's use.
-
-        Raises if the source is unregistered, or if an ``excluded`` source is
-        referenced at all, or if an ``eval-only`` source is used as ``train``.
-        This is the check that keeps unlicensed data out of the mix.
-        """
+        """Check source permissions and reject excluded or invalid training uses."""
         if type(training) is not bool:
             raise ValueError("training must be a boolean")
         lic = registry.require(self.source)

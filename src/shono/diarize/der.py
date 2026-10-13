@@ -25,7 +25,7 @@ class DERConfig:
 
 @dataclass(frozen=True)
 class DERResult:
-    """DER with its components broken out, so a bad number can be diagnosed."""
+    """DER, error durations, reference duration, and the speaker-label mapping."""
 
     der: float
     missed_s: float

@@ -1,6 +1,21 @@
 # Dataset licenses
 
-Source catalog; hours are not project training totals.
+This table is generated from [`licenses.json`](licenses.json). Hours describe
+the source records, not the amount used to train a project model. Source terms
+and access requirements remain separate from the project's use status:
+
+- `active`: permitted by the registry for training and evaluation.
+- `eval-only`: permitted for evaluation, excluded from training.
+- `excluded`: blocked until its source terms or permissions are resolved.
+
+The repository stores metadata rather than audio. The redistribution column
+records the source's audio terms; it does not grant additional rights.
+
+To print the current table:
+
+```sh
+uv run --locked python -c "from shono.data import LicenseRegistry; print(LicenseRegistry.load('data/licenses.json').render_table())"
+```
 
 | Source | Hours | Domain | License | Redistribute audio? | Status |
 |---|---|---|---|---|---|

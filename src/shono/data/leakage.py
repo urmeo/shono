@@ -58,7 +58,12 @@ class LeakageReport:
         } == {r.key for r in self.reviewed_text}
 
     def summary(self) -> str:
-        state = "CLEAN" if self.is_clean else "REVIEWED" if self.is_approved else "OVERLAP"
+        if self.is_clean:
+            state = "CLEAN"
+        elif self.is_approved:
+            state = "REVIEWED"
+        else:
+            state = "OVERLAP"
         kinds = ", ".join(f"{len(self.by_kind(k))} {k}" for k in self.checked_kinds)
         coverage = (
             f"audio hashes: train {self.train_hashed}/{self.train_total}, "

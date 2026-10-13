@@ -95,16 +95,16 @@ class WhisperFineTuneDataset:
         if not example.use_timestamps:
             labels = tokenizer(example.text).input_ids
             return self._validate_labels(labels, example)
-        no_ts = tokenizer.convert_tokens_to_ids("<|notimestamps|>")
-        prefix = [t for t in tokenizer.prefix_tokens if t != no_ts]
+        no_timestamps_id = tokenizer.convert_tokens_to_ids("<|notimestamps|>")
+        prefix = [token for token in tokenizer.prefix_tokens if token != no_timestamps_id]
         text_ids = tokenizer(example.text, add_special_tokens=False).input_ids
         end = example.duration_s
         if end > self.config.chunk_length_s:
             raise ValueError("example duration exceeds training chunk_length_s")
-        start_tok = _timestamp_token_id(tokenizer, 0.0)
-        end_tok = _timestamp_token_id(tokenizer, end)
+        start_token = _timestamp_token_id(tokenizer, 0.0)
+        end_token = _timestamp_token_id(tokenizer, end)
         return self._validate_labels(
-            [*prefix, start_tok, *text_ids, end_tok, tokenizer.eos_token_id], example
+            [*prefix, start_token, *text_ids, end_token, tokenizer.eos_token_id], example
         )
 
     def _validate_labels(self, labels: list[int], example: TrainExample) -> list[int]:

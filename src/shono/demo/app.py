@@ -11,7 +11,7 @@ def make_transcribe_fn(
     device: str = "cpu",
     compute_type: str = "int8",
 ):
-    """Build the callable the UI invokes: a recording path → a formatted transcript."""
+    """Build a function that transcribes an audio file and formats its speaker labels."""
     from shono.demo.pipeline import format_transcript, transcribe_recording
     from shono.diarize import PyannoteDiarizer
     from shono.transcribe import FasterWhisperTranscriber, LongFormTranscriber, SileroVAD
@@ -47,7 +47,7 @@ def build_app(
     device: str = "cpu",
     compute_type: str = "int8",
 ):
-    """Build the Gradio ``Blocks`` app (gradio required)."""
+    """Build the Gradio transcription interface."""
     import gradio as gr
 
     run = make_transcribe_fn(
@@ -56,12 +56,13 @@ def build_app(
     with gr.Blocks(title="Shono | Bengali transcription") as app:
         gr.Markdown(
             "# শোনো · Shono\n"
-            "Upload Bengali audio for transcription. Speaker labels describe the dominant "
-            "speaker per segment; missing word timings are marked. Models load on first use."
+            "Upload Bengali audio to get a transcript with speaker labels. Each label "
+            "identifies the speaker who talks for the longest time in that segment. "
+            "The transcript notes when word timings are unavailable. Models load on first use."
         )
         audio = gr.Audio(type="filepath", label="Bengali audio")
         button = gr.Button("Transcribe", variant="primary")
-        output = gr.Textbox(label="Speaker-attributed transcript", lines=20)
+        output = gr.Textbox(label="Transcript with speaker labels", lines=20)
         button.click(run, inputs=audio, outputs=output)
     return app
 

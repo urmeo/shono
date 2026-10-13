@@ -176,10 +176,12 @@ def test_incomplete_ct2_rejects_before_vad_and_module_help_is_clean(tmp_path, mo
     assert main([str(audio_file(tmp_path)), "--model", str(model)]) == 1
     for module_name in ("shono.transcribe", "shono.transcribe.convert", "shono.demo.app"):
         result = subprocess.run(
-            [sys.executable, "-m", module_name, "--help"], capture_output=True, text=True
+            [sys.executable, "-W", "error", "-m", module_name, "--help"],
+            capture_output=True,
+            text=True,
         )
         assert result.returncode == 0 and "usage:" in result.stdout
-        assert "Traceback" not in result.stderr
+        assert result.stderr == ""
 
 
 def test_conversion_cli_input2_and_missing_runtime1(tmp_path, monkeypatch, capsys):

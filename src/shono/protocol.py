@@ -296,9 +296,7 @@ def execute_matrix(
         context = RunContext.capture(
             seed,
             {
-                **settings.get(
-                    f"{entry.slug}:{entry.inference_mode}", settings.get(entry.slug, {})
-                ),
+                **configured,
                 "model_id": entry.model_id,
                 "model_revision": "unknown",
                 "provider": entry.provider,
