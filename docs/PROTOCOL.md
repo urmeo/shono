@@ -130,6 +130,16 @@ and decodes audio with librosa. Its repository, full revision, and settings are
 recorded in CLI JSON, prediction metadata, and diarization reports. The CLI also
 prints the revision to stderr. Runtime performance remains unmeasured.
 
+The long-form pipeline checks each decoder segment's average log probability,
+compression ratio, and no-speech probability before merging accepted text.
+A segment is dropped if any configured threshold fails. These guards are
+heuristics; they do not establish transcription accuracy.
+
+`ChunkTranscriber.transcribe_chunk` returns a tuple of decoder segments, each
+with recording-local bounds and segment-local word times. Empty output returns
+an empty tuple. CLI `n_chunks` counts input audio windows; `dropped` counts
+rejected decoder segments. Segments without word times retain coarse timing.
+
 ## Execution boundaries
 
 - Training requires permitted train and development inputs, declared held-out

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Filter decoder segments before merging text; retain segment scores and timings.
 - Hash local audio during leakage audits and block incomplete hash coverage.
 - Bind training loaders and resume to one Hub commit or hashed local checkpoint.
 - Record the pinned Silero revision in inference and diarization outputs.
