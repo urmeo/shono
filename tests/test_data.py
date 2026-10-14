@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -185,6 +186,24 @@ def test_render_table_lists_sources_and_licenses(registry):
     assert "CC-BY-SA-4.0" in table
     assert "Common Voice" in table
     assert table.index("active") < table.index("excluded")
+
+
+def test_render_table_escapes_dynamic_cell_text():
+    original = next(iter(synthetic_registry("synthetic")))
+    license = replace(
+        original,
+        name="Dataset|extra\nrow",
+        domain="read\rtest",
+        license="license|name\ntext",
+        url="",
+    )
+
+    table = LicenseRegistry([license]).render_table()
+
+    assert len(table.splitlines()) == 3
+    assert "Dataset\\|extra row" in table
+    assert "read test" in table
+    assert "license\\|name text" in table
 
 
 def test_excluded_source_cannot_be_referenced(registry):

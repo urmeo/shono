@@ -7,6 +7,7 @@ import random
 from dataclasses import dataclass
 
 from shono.diarize.types import SpeakerSegment
+from shono.markdown import escape_cell
 from shono.transcribe._validation import count, finite_real, finite_sum
 
 
@@ -331,6 +332,7 @@ def render_der_report(
         "|---|---|---|---|---|",
     ]
     for system, result, ci in rows:
+        system = escape_cell(system)
         if result.config is not None and result.config != config:
             raise ValueError("DER result protocol differs from report protocol")
         if ci is not None and (ci.config is not None and ci.config != config):

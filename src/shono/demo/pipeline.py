@@ -18,7 +18,7 @@ def transcribe_recording(
 ) -> Transcript:
     """Transcribe ``audio_path`` and, if a diarizer is given, attribute speakers."""
     result = pipeline.transcribe(audio_path, audio_duration_s)
-    if diarizer is None:
+    if diarizer is None or not result.transcript.segments:
         return result.transcript
     speakers = vad_intersection(diarizer.diarize(audio_path), list(result.speech))
     return attribute_speakers(result.transcript, speakers)

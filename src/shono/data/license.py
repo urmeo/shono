@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from shono.data.validation import json_object, real_number, text_value
+from shono.markdown import escape_cell
 
 _STATUSES = frozenset({"active", "eval-only", "excluded"})
 
@@ -130,8 +131,7 @@ class LicenseRegistry:
             if lic.redistributable_audio is not None:
                 audio = "yes" if lic.redistributable_audio else "no"
             link = f"[{lic.name}]({lic.url})" if lic.url else lic.name
-            rows.append(
-                f"| {link} | {hours} | {lic.domain} | {lic.license} | {audio} | {lic.status} |"
-            )
+            values = (link, hours, lic.domain, lic.license, audio, lic.status)
+            rows.append("| " + " | ".join(escape_cell(value) for value in values) + " |")
         stamp = f"\n\n_Registry as of {self.as_of}._" if self.as_of else ""
         return f"{header}\n" + "\n".join(rows) + stamp

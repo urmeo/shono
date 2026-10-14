@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import tempfile
@@ -19,8 +20,10 @@ from shono.eval.codeswitch import CS_NORMALIZER_VERSION, code_switch_normalize
 from shono.eval.model import MODEL_KINDS, validate_scored_model
 from shono.eval.normalize import NORMALIZER_VERSION, normalize
 from shono.eval.score import ScoreReport, score
+from shono.markdown import escape_cell as _md
 from shono.output_paths import source_files, validate_output_destinations, write_text_atomic
 from shono.provenance import RunContext, safe_command, safe_metadata
+from shono.transcribe._validation import finite_real
 
 _DEFAULT_RESAMPLES = 1000
 _CODE_SWITCH_DOMAIN = "code-switch"
@@ -46,10 +49,6 @@ def _load_manifest(path: Path) -> tuple[Manifest, str]:
     if path.read_bytes() != raw:
         raise ValueError(f"manifest changed while loading: {path}")
     return manifest, hashlib.sha256(raw).hexdigest()
-
-
-def _md(value: str) -> str:
-    return value.replace("|", "\\|").replace("\n", " ").replace("\r", " ")
 
 
 @dataclass(frozen=True)
@@ -413,11 +412,68 @@ class Report:
     input_paths: tuple[str, ...] = ()
 
     def _validate_release(self) -> None:
+        expected = {(system, name) for system in self.system_order for name in self.slice_order}
+        actual = [(cell.system, cell.slice_name) for cell in self.cells]
+        if (
+            not expected
+            or len(self.slice_order) != len(set(self.slice_order))
+            or len(self.system_order) != len(set(self.system_order))
+            or len(actual) != len(set(actual))
+            or set(actual) != expected
+        ):
+            raise ValueError("report requires exactly one cell per declared system and slice")
         for cell in self.cells:
             if cell.status not in ("pending", "scored"):
                 raise ValueError("report cell status must be pending or scored")
             if cell.status == "scored":
                 validate_scored_model(cell.model_kind, cell.leakage_audit)
+                if not isinstance(cell.score, ScoreReport):
+                    raise ValueError("scored report cells require scores")
+                for value in (
+                    cell.score.wer_raw,
+                    cell.score.cer_raw,
+                    cell.score.wer_normalized,
+                    cell.score.cer_normalized,
+                ):
+                    finite_real(value, "report score", minimum=0)
+                    finite_real(value * 100, "report score percentage", minimum=0)
+                if (
+                    isinstance(cell.n_segments, bool)
+                    or not isinstance(cell.n_segments, int)
+                    or cell.n_segments <= 0
+                    or cell.n_segments != cell.score.n_segments
+                    or isinstance(cell.n_recordings, bool)
+                    or not isinstance(cell.n_recordings, int)
+                    or not 1 <= cell.n_recordings <= cell.n_segments
+                ):
+                    raise ValueError("report score counts do not match the cell")
+                for metric, point, interval in (
+                    ("wer", cell.score.wer_normalized, cell.wer_ci),
+                    ("cer", cell.score.cer_normalized, cell.cer_ci),
+                ):
+                    if interval is None:
+                        if cell.n_recordings != 1:
+                            raise ValueError("multi-recording report cells require intervals")
+                        continue
+                    if not isinstance(interval, BootstrapCI):
+                        raise ValueError("report intervals must be BootstrapCI records")
+                    for value in (interval.point, interval.lower, interval.upper):
+                        finite_real(value, "report interval", minimum=0)
+                    expected_resamples = self.run_context.config.get("n_resamples")
+                    if (
+                        interval.metric != metric
+                        or not math.isclose(interval.point, point, rel_tol=1e-10, abs_tol=1e-12)
+                        or interval.lower > interval.upper
+                        or interval.confidence != 0.95
+                        or interval.n_blocks != cell.n_recordings
+                        or interval.n_segments != cell.n_segments
+                        or cell.n_recordings < 2
+                        or (
+                            expected_resamples is not None
+                            and interval.n_resamples != expected_resamples
+                        )
+                    ):
+                        raise ValueError("report interval does not match its score or protocol")
 
     def cell(self, system: str, slice_name: str) -> SliceScore:
         for cell in self.cells:
@@ -431,7 +487,7 @@ class Report:
 
     def _row(self, system: str, slice_name: str) -> str:
         cell = self.cell(system, slice_name)
-        policy = f"{cell.normalization_policy} v{cell.normalizer_version}"
+        policy = _md(f"{cell.normalization_policy} v{cell.normalizer_version}")
         if cell.is_pending:
             return f"| {_md(system)} | pending | pending | pending | pending | {policy} |"
         assert cell.score is not None
@@ -446,12 +502,17 @@ class Report:
     def render_markdown(self) -> str:
         self._validate_release()
         rc = self.run_context
+        tree = ""
+        if rc.git.dirty is None:
+            tree = " (working tree unknown)"
+        elif rc.git.dirty:
+            tree = " (dirty)"
         lines = [
             f"# {_md(self.title)}",
             "",
             f"- Generated: {rc.timestamp}",
             f"- Scoring command: `{rc.command or 'unknown'}`",
-            f"- Git: {rc.git.sha or 'unknown'}{' (dirty)' if rc.git.dirty else ''}",
+            f"- Git: {rc.git.sha or 'unknown'}{tree}",
             f"- Seed: {rc.seed}; CI: blockwise bootstrap, "
             f"{rc.config.get('n_resamples', 'unknown')} resamples, 95%.",
             "",
@@ -622,6 +683,8 @@ def build_report(
     context = run_context or RunContext.capture(
         spec.seed, {"report": spec.name, "n_resamples": spec.n_resamples}, command=command
     )
+    if context.seed != spec.seed or context.config.get("n_resamples") != spec.n_resamples:
+        raise ValueError("report context differs from the declared bootstrap settings")
     manifests = {}
     hashes = {}
     domains = {}
@@ -700,6 +763,8 @@ def build_report(
                 )
                 continue
             predictions = Predictions.from_jsonl(path)
+            model_id = system.model_id
+            inference_mode = system.inference_modes.get(item.name, "unknown")
             if predictions.system != system.name:
                 raise ValueError(
                     f"prediction system {predictions.system!r} differs from spec system "
@@ -710,10 +775,34 @@ def build_report(
                 if not isinstance(config, dict):
                     raise ValueError("prediction context config must be an object")
                 recorded = config.get("model_id", config.get("model"))
+                if recorded is not None:
+                    text_value(recorded, "prediction model")
                 if recorded and system.model_id != "unknown" and recorded != system.model_id:
                     raise ValueError(
                         f"prediction model {recorded!r} differs from spec model {system.model_id!r}"
                     )
+                if model_id == "unknown" and recorded:
+                    model_id = recorded
+                recorded_mode = config.get("inference_mode")
+                if recorded_mode is not None:
+                    text_value(recorded_mode, "prediction inference mode")
+                if (
+                    recorded_mode
+                    and inference_mode != "unknown"
+                    and recorded_mode != inference_mode
+                ):
+                    raise ValueError(
+                        f"prediction inference mode {recorded_mode!r} differs from spec mode "
+                        f"{inference_mode!r}"
+                    )
+                if inference_mode == "unknown" and recorded_mode:
+                    inference_mode = recorded_mode
+                extra = predictions.run_context.get("extra", {})
+                if not isinstance(extra, dict):
+                    raise ValueError("prediction context extra must be an object")
+                recorded_hash = extra.get("manifest_sha256")
+                if recorded_hash not in (None, "unknown") and recorded_hash != hashes[item.name]:
+                    raise ValueError("prediction manifest hash differs from the scoring manifest")
             input_hashes["predictions"] = predictions.source_sha256
             cells.append(
                 score_slice(
@@ -724,9 +813,9 @@ def build_report(
                     slice_name=item.name,
                     input_hashes=input_hashes,
                     leakage_audit=audit,
-                    model_id=system.model_id,
+                    model_id=model_id,
                     model_kind=system.model_kind,
-                    inference_mode=system.inference_modes.get(item.name, "unknown"),
+                    inference_mode=inference_mode,
                 )
             )
     return Report(

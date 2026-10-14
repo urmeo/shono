@@ -90,6 +90,15 @@ def render_model_card(
         cells[key] = cell
     if not any(name == system for name, _ in cells):
         raise ValueError(f"system {system!r} is absent from report")
+    checkpoints = set()
+    for (cell_system, _slice), cell in cells.items():
+        if cell_system == system and cell.get("status") == "scored":
+            checkpoint = cell.get("model_id", "unknown")
+            _validate_text(checkpoint, "evaluated checkpoint")
+            if checkpoint != "unknown":
+                checkpoints.add(checkpoint)
+    if len(checkpoints) > 1:
+        raise ValueError("model-card results refer to conflicting evaluated checkpoints")
     if not isinstance(limitations, (tuple, list)) or any(
         not isinstance(item, str) for item in limitations
     ):
@@ -113,8 +122,8 @@ def render_model_card(
         "Word error rate (WER; lower is better) comes from the supplied report. "
         "Each row states its scoring policy. Pending rows have no measured score.",
         "",
-        "| Slice | WER (normalized, 95% CI when available) | Policy |",
-        "|---|---|---|",
+        "| Slice | WER (normalized, 95% CI when available) | Policy | Evaluated checkpoint |",
+        "|---|---|---|---|",
     ]
     for name in slices:
         cell = cells.get((system, name))
@@ -124,7 +133,10 @@ def render_model_card(
             validate_scored_model(cell.get("model_kind", "unknown"), cell.get("leakage_audit"))
         policy = cell.get("normalization_policy", "unknown")
         version = cell.get("normalizer_version", "unknown")
-        row = (name, _wer_str(cell), f"{policy} v{version}")
+        checkpoint = (
+            cell.get("model_id", "unknown") if cell.get("status") == "scored" else "pending"
+        )
+        row = (name, _wer_str(cell), f"{policy} v{version}", checkpoint)
         lines.append("| " + " | ".join(_md(value) for value in row) + " |")
     lines += ["", f"Protocol and inputs: [Shono]({repo_url})."]
     if limitations:

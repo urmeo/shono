@@ -166,9 +166,9 @@ def test_model_card_preserves_table_columns_and_rows(slice_name, policy, version
         repo_url="u",
     )
     table_lines = [line for line in card.splitlines() if line.startswith("|")]
-    assert table_lines[2] == f"| {expected} |"
+    assert table_lines[2] == f"| {expected} | unknown |"
     assert len(table_lines) == 4
-    assert all(len(re.split(r"(?<!\\)\|", line)) == 5 for line in table_lines)
+    assert all(len(re.split(r"(?<!\\)\|", line)) == 6 for line in table_lines)
 
 
 def test_card_requires_explicit_training_and_weight_licenses():
