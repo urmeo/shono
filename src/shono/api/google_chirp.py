@@ -24,6 +24,17 @@ class GoogleChirpTranscriber:
         self.location = location
         self._client = None
 
+    def observed_runtime_context(self) -> dict:
+        return {
+            "provider": "google",
+            "model": self.model,
+            "model_revision": "unknown",
+            "language": self.language,
+            "location": self.location,
+            "api_endpoint": f"{self.location}-speech.googleapis.com",
+            "retries": False,
+        }
+
     def _client_and_recognizer(self):
         if self._client is None:
             from google.api_core.client_options import ClientOptions

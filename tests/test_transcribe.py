@@ -121,7 +121,7 @@ def test_merge_wordless_chunks_concatenate_in_time_order():
 
 def test_merge_skips_wordless_chunk_fully_covered():
     a = ChunkTranscription(0.0, 10.0, "সব")
-    covered = ChunkTranscription(2.0, 8.0, "নকল")
+    covered = ChunkTranscription(2.0, 8.0, "সব")
     assert merge_transcriptions([a, covered]).text == "সব"
 
 
@@ -208,6 +208,7 @@ def test_failed_whisper_device_load_does_not_leave_a_cached_model(monkeypatch):
     processor = object()
 
     class Model:
+        config = NS(_commit_hash="a" * 40)
         generation_config = NS(forced_decoder_ids=None)
 
         def to(self, device):
@@ -218,7 +219,8 @@ def test_failed_whisper_device_load_does_not_leave_a_cached_model(monkeypatch):
         def eval(self):
             pass
 
-    def load_model(model_id):
+    def load_model(model_id, *, config, revision):
+        assert config is Model.config and revision == "a" * 40
         model = Model()
         models.append(model)
         return model
@@ -228,7 +230,8 @@ def test_failed_whisper_device_load_does_not_leave_a_cached_model(monkeypatch):
         sys.modules,
         "transformers",
         NS(
-            WhisperProcessor=NS(from_pretrained=lambda model_id: processor),
+            WhisperConfig=NS(from_pretrained=lambda model_id: Model.config),
+            WhisperProcessor=NS(from_pretrained=lambda model_id, *, revision: processor),
             WhisperForConditionalGeneration=NS(from_pretrained=load_model),
         ),
     )

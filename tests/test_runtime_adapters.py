@@ -240,8 +240,9 @@ def test_hf_whisper_fake_generation_and_observed_settings(tmp_path, monkeypatch)
 
     class Processor:
         @classmethod
-        def from_pretrained(cls, name):
+        def from_pretrained(cls, name, *, revision):
             observed["processor"] = name
+            assert revision == "a" * 40
             return cls()
 
         def __call__(self, audio, *, sampling_rate, return_tensors, return_attention_mask):
@@ -254,15 +255,16 @@ def test_hf_whisper_fake_generation_and_observed_settings(tmp_path, monkeypatch)
             return [" বাংলা "]
 
     class Model:
-        config = NS(_commit_hash="fake-revision")
+        config = NS(_commit_hash="a" * 40)
         generation_config = NS(
             forced_decoder_ids=[[1, 2]],
             to_dict=lambda: {"num_beams": 5, "do_sample": False},
         )
 
         @classmethod
-        def from_pretrained(cls, name):
+        def from_pretrained(cls, name, *, config, revision):
             observed["model"] = name
+            assert config is cls.config and revision == "a" * 40
             return cls()
 
         def to(self, device):
@@ -283,7 +285,11 @@ def test_hf_whisper_fake_generation_and_observed_settings(tmp_path, monkeypatch)
     monkeypatch.setitem(
         sys.modules,
         "transformers",
-        NS(WhisperProcessor=Processor, WhisperForConditionalGeneration=Model),
+        NS(
+            WhisperConfig=NS(from_pretrained=lambda name: Model.config),
+            WhisperProcessor=Processor,
+            WhisperForConditionalGeneration=Model,
+        ),
     )
     monkeypatch.setitem(
         sys.modules, "librosa", NS(load=lambda *args, **kw: (Array([0] * 32000), 16000))
@@ -294,7 +300,7 @@ def test_hf_whisper_fake_generation_and_observed_settings(tmp_path, monkeypatch)
     assert observed["generate"] == ("bn", "transcribe")
     assert observed["features_device"] == "cpu"
     assert adapter.observed_runtime_context()["generation_config"]["num_beams"] == 5
-    assert adapter.observed_runtime_context()["model_revision"] == "fake-revision"
+    assert adapter.observed_runtime_context()["model_revision"] == "a" * 40
 
 
 def test_faster_whisper_does_not_invent_missing_word_timestamps(tmp_path, monkeypatch):

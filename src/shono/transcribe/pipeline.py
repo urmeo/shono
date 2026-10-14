@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from copy import deepcopy
+from dataclasses import asdict, dataclass, is_dataclass
 from time import perf_counter
 from typing import Protocol, runtime_checkable
 
+from shono.checkpoints import hash_checkpoint
 from shono.data.audio_paths import validate_audio_window
 from shono.transcribe._validation import count, finite_real, probability, time_bounds
 from shono.transcribe.chunking import plan_chunks, union_speech
@@ -78,8 +80,11 @@ class LongFormTranscriber:
 
     def observed_runtime_context(self) -> dict:
         observer = getattr(self.vad, "observed_runtime_context", None)
+        decoder_observer = getattr(self.transcriber, "observed_runtime_context", None)
         return {
             "vad": observer() if callable(observer) else "unknown",
+            "decoder": decoder_observer() if callable(decoder_observer) else "unknown",
+            "hallucination": asdict(self.hallucination),
             "max_chunk_s": self.max_chunk_s,
             "pad_s": self.pad_s,
             "max_chunks": self.max_chunks,
@@ -217,17 +222,40 @@ class FasterWhisperTranscriber:
         self.compute_type = compute_type
         self.language = language
         self._model = None
+        self._checkpoint = None
+        self._decoding_options = None
+
+    def observed_runtime_context(self) -> dict:
+        model = getattr(self._model, "model", None)
+        return {
+            "model_dir": self.model_dir,
+            "checkpoint": deepcopy(self._checkpoint) if self._checkpoint is not None else "unknown",
+            "device": self.device,
+            "compute_type": self.compute_type,
+            "loaded_compute_type": getattr(model, "compute_type", "unknown"),
+            "language": self.language,
+            "word_timestamps": True,
+            "condition_on_previous_text": False,
+            "decoding_options": deepcopy(self._decoding_options)
+            if self._decoding_options is not None
+            else "unknown",
+        }
 
     def _load(self):
         if self._model is None:
             from shono.transcribe.convert import validate_ct2_checkpoint
 
             model_path = validate_ct2_checkpoint(self.model_dir)
+            identity = hash_checkpoint(model_path)
             from faster_whisper import WhisperModel
 
-            self._model = WhisperModel(
+            model = WhisperModel(
                 str(model_path), device=self.device, compute_type=self.compute_type
             )
+            if hash_checkpoint(model_path) != identity:
+                raise ValueError("local checkpoint changed while loading")
+            self._model = model
+            self._checkpoint = identity
         return self._model
 
     def transcribe_chunk(
@@ -245,12 +273,14 @@ class FasterWhisperTranscriber:
         )
         if len(audio) == 0 or not np.isfinite(audio).all():
             raise ValueError("decoded audio must contain finite samples")
-        segments, _info = self._load().transcribe(
+        segments, info = self._load().transcribe(
             audio,
             language=self.language,
             word_timestamps=True,
             condition_on_previous_text=False,
         )
+        options = getattr(info, "transcription_options", None)
+        self._decoding_options = asdict(options) if is_dataclass(options) else None
         transcriptions: list[ChunkTranscription] = []
         for segment in segments:
             time_bounds(segment.start, segment.end, "decoder segment")

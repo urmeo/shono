@@ -16,6 +16,16 @@ class DeepgramTranscriber:
         self.language = language
         self._client = None
 
+    def observed_runtime_context(self) -> dict:
+        return {
+            "provider": "deepgram",
+            "model": self.model,
+            "model_revision": "unknown",
+            "language": self.language,
+            "smart_format": True,
+            "max_retries": 0,
+        }
+
     def _get_client(self):
         if self._client is None:
             from deepgram import DeepgramClient
