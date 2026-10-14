@@ -68,6 +68,9 @@ Configure paths and run settings, then run the notebooks in this order:
 3. [`train_whisper_medium.ipynb`](notebooks/train_whisper_medium.ipynb): fine-tune from declared train and development splits.
 4. [`predict.ipynb`](notebooks/predict.ipynb): generate predictions and reports, with optional speaker labels and cloud comparisons.
 
+Hub training requires a full checkpoint commit SHA; the
+[model identity rules](docs/PROTOCOL.md#model-identity) cover Hub and local inputs.
+
 Model and cloud runs default to disabled. Long recordings use Silero speech
 detection, chunking, and faster-whisper. The optional pyannote path labels each
 transcript segment with its dominant speaker. Word alignment is unverified.
