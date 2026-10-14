@@ -8,9 +8,9 @@ and Transformers.
 ![Shono pipeline: audio to transcript to evaluation report, with optional fine-tuning, speaker labels, and API comparisons.](assets/figures/pipeline.svg)
 
 This is a prototype. The repository has no project-trained checkpoint or
-measured model accuracy. GPU training and provider inference still need
-validation. The [scorer checks](outputs/scorer-check.csv) use hand-computed text
-examples, with [metadata](outputs/scorer-check.toml) and a
+measured model accuracy. GPU training, live provider calls, and the gated
+speaker model still need validation. The [scorer checks](outputs/scorer-check.csv)
+use hand-computed text examples, with [metadata](outputs/scorer-check.toml) and a
 [chart](outputs/scorer-check.svg).
 
 ## Run the checks
