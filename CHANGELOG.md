@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Hash local audio during leakage audits and block incomplete hash coverage.
+- Bind training loaders and resume to one Hub commit or hashed local checkpoint.
+- Record the pinned Silero revision in inference and diarization outputs.
 - Protect shared training manifests from report output collisions.
 - Pass audio attention masks to Whisper generation and default the transcription
   CLI to CPU with int8 computation.

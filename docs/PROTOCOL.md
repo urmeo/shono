@@ -18,7 +18,8 @@ client.
 | `duration_s` | Finite, positive duration checked against the file's audio metadata |
 | `start_s` | `None` means the whole file; an explicit value, including zero, selects an aligned crop |
 | `recording_id` | Block used for bootstrap resampling; may group one speaker across clips |
-| `language`, `audio_sha256` | Preserve supplied values and report missing hash coverage |
+| `language` | Preserve the supplied language tag |
+| `audio_sha256` | SHA256 of complete file bytes; computed during local leakage audits if absent |
 
 To collapse segments into one recording reference, they must refer to the same
 file and have a known time order. The resulting duration includes gaps between
@@ -62,6 +63,15 @@ not project training totals. The registry grants no additional rights.
 The [Loop paper](https://arxiv.org/html/2602.14291v1) cites a separate regional
 Tugstugi checkpoint. Its published score does not measure this project's base
 checkpoint or fine-tune.
+
+Hub training requires `TrainConfig.model_revision` to be a full 40-character
+commit SHA. Set `SHONO_MODEL_REVISION` to that SHA before running the training
+notebook. Branches, tags, and shortened hashes are rejected. Processor,
+configuration, and weights load from the same model ID and revision.
+
+`training-inputs.json` records the base checkpoint identity. Local checkpoint
+directories load offline and use SHA256 for every file. Changed Hub revisions
+or local file contents block resume. Local files are checked again after loading.
 
 ## Optional runtime
 
@@ -116,7 +126,9 @@ checkpoint also requires Transformers `>=4.52.4,<5`; inspect its options with
 
 On a cold cache, Silero code and weights download on first use. The adapter pins
 [Silero commit `1e261b0`](https://github.com/snakers4/silero-vad/commit/1e261b036686cd0017d500ee96acd1c4ba572a9d)
-and decodes audio with librosa. Runtime performance remains unmeasured.
+and decodes audio with librosa. Its repository, full revision, and settings are
+recorded in CLI JSON, prediction metadata, and diarization reports. The CLI also
+prints the revision to stderr. Runtime performance remains unmeasured.
 
 ## Execution boundaries
 
@@ -128,6 +140,13 @@ and decodes audio with librosa. Runtime performance remains unmeasured.
 - Cloud runs default to disabled and provider allowances default to zero. The
   guard reserves cumulative declared audio duration before requests. Account
   credits, retries, and provider billing must be checked separately.
+
+With `audio_root`, leakage audits hash the local file bytes and verify supplied
+digests. Without it, every segment must declare `audio_sha256`. Missing hashes
+or partial check selections leave the audit `INCOMPLETE` and unapproved.
+Training and scored fine-tuned reports require complete audits. Hash checks
+detect byte-identical copies; they do not detect re-encoded or edited audio.
+Set `HASH_AUDIO=True` when preparing manifests for reports without `audio_root`.
 
 Speaker attribution first clips speaker turns to detected speech, then labels
 each transcript chunk with its dominant speaker. These labels do not establish
@@ -163,4 +182,4 @@ training and convergence still require validation.
 
 [Whisper paper](https://arxiv.org/abs/2212.04356) · [Loop format and protocol](https://arxiv.org/html/2602.14291v1) · [SLR53](https://www.openslr.org/53/) · [MUCS](https://www.openslr.org/104/)
 
-[Pyannote output contract](https://huggingface.co/pyannote/speaker-diarization-community-1) · [Deepgram 7 migration](https://raw.githubusercontent.com/deepgram/deepgram-python-sdk/main/docs/Migrating-v6-to-v7.md) · [Google input limits](https://docs.cloud.google.com/speech-to-text/docs/quotas) · [Transformers 4.52.4](https://huggingface.co/docs/transformers/v4.52.4/en/main_classes/trainer)
+[Pyannote output contract](https://huggingface.co/pyannote/speaker-diarization-community-1) · [Deepgram 7 migration](https://raw.githubusercontent.com/deepgram/deepgram-python-sdk/main/docs/Migrating-v6-to-v7.md) · [Google input limits](https://docs.cloud.google.com/speech-to-text/docs/quotas) · [Transformers 4.52.4 Trainer source](https://github.com/huggingface/transformers/blob/v4.52.4/src/transformers/trainer.py)
