@@ -28,6 +28,8 @@ cd shono
 `./verify` installs locked dependencies, checks lint and formatting, validates
 notebook syntax, runs the offline tests, and verifies the scorer artifacts.
 Training and transcription require separate runtime dependencies and inputs.
+GitHub also checks CPU training, checkpoint resume, and inference with a tiny
+randomly initialized model and synthetic audio.
 
 ## Score transcripts
 
@@ -56,9 +58,13 @@ inference settings, and confidence intervals over recording or speaker blocks.
 
 ## Training and transcription
 
-The [data and runtime protocol](docs/PROTOCOL.md) describes input formats,
-dependencies, source terms, and scoring rules. Configure the paths and run
-settings before using the notebooks in this order:
+For local recording transcription, follow the
+[CPU runtime setup](docs/PROTOCOL.md#optional-runtime). The CLI accepts an
+existing CTranslate2 checkpoint and defaults to CPU with int8 computation.
+
+The [data and runtime protocol](docs/PROTOCOL.md) also covers input formats,
+source terms, and scoring rules. Configure the paths and run settings before
+using the notebooks in this order:
 
 1. [`prepare_data.ipynb`](notebooks/prepare_data.ipynb): validate local datasets and write manifests.
 2. [`baselines.ipynb`](notebooks/baselines.ipynb): transcribe with the selected baseline checkpoints.
