@@ -199,6 +199,22 @@ def test_build_examples_preserves_scorable_original_target():
     assert examples[0].text == original
 
 
+def test_duplicate_whole_file_and_zero_start_crop_are_rejected():
+    manifest = _manifest("m", "train", [2.0])
+    original = manifest.segments[0]
+    manifest = replace(manifest, segments=(original, replace(original, id="crop", start_s=0.0)))
+
+    with pytest.raises(ValueError, match="duplicate.*audio windows"):
+        build_examples(
+            [manifest],
+            chunk_length_s=30.0,
+            min_chunk_length_s=1.0,
+            timestamp_sample_fraction=0.0,
+            seed=0,
+            registry=synthetic_registry("openslr_slr53"),
+        )
+
+
 def test_build_examples_refuses_test_split():
     m = _manifest("m", "test", [2.0])
     with pytest.raises(ValueError, match="test data must never enter training"):
@@ -260,6 +276,13 @@ def test_experiment_record_pre_run_says_not_run():
     assert "medium full-FT beats zero-shot" in text
 
 
+def test_experiment_record_distinguishes_unknown_git_status_from_clean():
+    context = replace(_run_context(), git=GitState(sha="abc", dirty=None))
+    text = render_experiment("trial", "test hypothesis", _config(), context)
+
+    assert "git abc (working tree unknown)" in text
+
+
 def test_experiment_record_shows_delta_vs_baseline():
     text = render_experiment(
         "m3-v1",
@@ -297,6 +320,9 @@ def test_timestamped_label_omits_notimestamps_token(tmp_path):
 
         def __call__(self, text, add_special_tokens=True):
             return SimpleNamespace(input_ids=[5, 6])
+
+        def decode(self, ids, skip_special_tokens=True):
+            return "আমি ভালো"
 
     processor = SimpleNamespace(tokenizer=Tokenizer())
     (tmp_path / "a.wav").write_bytes(b"synthetic")

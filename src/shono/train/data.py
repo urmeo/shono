@@ -113,7 +113,7 @@ def build_examples(
     if not kept:
         raise ValueError(f"no {role} examples survive the duration bounds")
     identities = [(e.source, e.id) for e in kept]
-    windows = [(e.audio, e.start_s, e.duration_s) for e in kept]
+    windows = [(e.audio, e.start_s or 0.0, e.duration_s) for e in kept]
     if len(set(identities)) != len(identities) or len(set(windows)) != len(windows):
         raise ValueError("duplicate training/evaluation items or audio windows")
     kept.sort(key=lambda e: (e.source, e.recording_id, e.audio, e.start_s or 0.0, e.id))

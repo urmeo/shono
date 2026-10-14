@@ -8,10 +8,18 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from shono.data.audio_paths import DurationFn, resolved_path, validate_manifest_audio
-from shono.data.leakage import require_no_leakage
+from shono.data.audio_paths import (
+    DurationFn,
+    audio_duration,
+    file_sha256,
+    resolved_path,
+    validate_audio_window,
+    validate_manifest_audio,
+)
+from shono.data.leakage import audit_leakage, require_no_leakage
 from shono.data.license import LicenseRegistry
 from shono.data.manifest import Manifest
+from shono.data.validation import json_object
 from shono.train.checkpoint import decide_resume
 from shono.train.config import TrainConfig
 from shono.train.data import build_examples
@@ -137,11 +145,44 @@ def run_training(
     evaluation = [*eval_manifests, *held_out_manifests]
     if not isinstance(decisions, Mapping) or set(decisions) - {m.name for m in evaluation}:
         raise ValueError("text_decisions has unknown evaluation manifest names")
+    audio_root = resolved_path(audio_root)
+    audio_files: dict[str, str] = {}
+    durations: dict[Path, float] = {}
+
+    def read_duration(path: Path) -> float:
+        if path not in durations:
+            durations[path] = (duration_of or audio_duration)(path)
+        return durations[path]
+
     for manifest in all_manifests:
         manifest.validate_against(registry, training=manifest in train_manifests)
         if any(seg.language != config.language for seg in manifest.segments):
             raise ValueError(f"manifest {manifest.name!r}: language conflicts with training config")
-        validate_manifest_audio(manifest, audio_root, duration_of=duration_of)
+        paths = validate_manifest_audio(manifest, audio_root, duration_of=read_duration)
+        for path in paths:
+            relative = path.relative_to(audio_root).as_posix()
+            if relative not in audio_files:
+                audio_files[relative] = file_sha256(path)
+    for examples in (train_examples, eval_examples):
+        windows = set()
+        for example in examples:
+            path = resolved_path(audio_root / example.audio)
+            window = (
+                audio_files[path.relative_to(audio_root).as_posix()],
+                example.start_s or 0.0,
+                validate_audio_window(
+                    path, example.start_s, example.duration_s, duration_of=read_duration
+                ),
+            )
+            if window in windows:
+                raise ValueError(
+                    "duplicate training/evaluation audio windows, including file aliases"
+                )
+            windows.add(window)
+    for manifest in held_out_manifests:
+        development_audit = audit_leakage(eval_manifests, manifest, audio_root=audio_root)
+        if any(overlap.kind != "text" for overlap in development_audit.overlaps):
+            raise ValueError(f"hard development/held-out overlap: {development_audit.summary()}")
     audits = [
         require_no_leakage(
             train_manifests,
@@ -170,6 +211,7 @@ def run_training(
                 "config": training_config,
                 "base_checkpoint": base_checkpoint,
                 "manifests": [asdict(m) for m in all_manifests],
+                "audio_files_sha256": audio_files,
                 "leakage": [asdict(report) for report in audits],
             },
             allow_nan=False,
@@ -180,11 +222,22 @@ def run_training(
         raise ValueError("training identity path escapes output_dir")
     if identity_path.exists():
         try:
-            prior = json.loads(identity_path.read_text(encoding="utf-8"))
+            prior = json_object(identity_path.read_text(encoding="utf-8"), str(identity_path))
         except (ValueError, OSError) as exc:
             raise ValueError("cannot read prior training identity") from exc
         if isinstance(prior, dict) and isinstance(prior.get("config"), dict):
             prior["config"].pop("resume", None)
+            if "audio_files_sha256" not in prior:
+                if prior.get("manifests") != identity["manifests"] or any(
+                    seg.audio_sha256 is None
+                    for manifest in all_manifests
+                    for seg in manifest.segments
+                ):
+                    raise ValueError(
+                        "prior training identity has no verifiable audio hashes; "
+                        "choose a new output"
+                    )
+                prior["audio_files_sha256"] = audio_files
         if prior != identity:
             raise ValueError(
                 "output_dir contains a different training identity; choose a new output"

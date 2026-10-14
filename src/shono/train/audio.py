@@ -8,6 +8,7 @@ from typing import Any
 
 from shono.data.audio_paths import resolved_path, validate_audio_window
 from shono.data.validation import real_number
+from shono.eval.normalize import NORMALIZER_VERSION, normalize
 from shono.train.config import TrainConfig
 from shono.train.data import TrainExample
 
@@ -115,6 +116,12 @@ class WhisperFineTuneDataset:
             raise ValueError(
                 f"example {example.source}:{example.id}: target has {count} tokens; "
                 f"model capacity is {self.max_target_positions}"
+            )
+        reference = self.processor.tokenizer.decode(labels, skip_special_tokens=True)
+        if not normalize(reference):
+            raise ValueError(
+                f"example {example.source}:{example.id}: target is empty after Whisper "
+                f"decoding and evaluation normalization v{NORMALIZER_VERSION}"
             )
         return labels
 

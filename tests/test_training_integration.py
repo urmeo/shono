@@ -10,7 +10,8 @@ import pytest
 from data_fixtures import synthetic_registry
 
 from shono.data import Manifest, Segment
-from shono.train import TrainConfig, run_training
+from shono.train import TrainConfig, TrainExample, run_training
+from shono.train.audio import WhisperFineTuneDataset
 from shono.transcribe import ShortFormWhisperTranscriber
 
 
@@ -131,6 +132,18 @@ def test_real_cpu_training_exports_evaluates_and_resumes(tmp_path, monkeypatch):
         timestamp_sample_fraction=0,
         resume=False,
     )
+    for target in ("<|endoftext|>", "<|notimestamps|>", "<|0.00|>"):
+        invalid = TrainExample("train.wav", target, 0.25, "train", "synthetic")
+        dataset = WhisperFineTuneDataset(
+            [invalid],
+            processor,
+            settings,
+            audio_root=audio_root,
+            max_target_positions=config.max_target_positions,
+            decoder_start_token_id=config.decoder_start_token_id,
+        )
+        with pytest.raises(ValueError, match="empty after Whisper decoding"):
+            dataset.validate_labels()
     training_arguments = training.to_training_arguments
     monkeypatch.setattr(
         training,

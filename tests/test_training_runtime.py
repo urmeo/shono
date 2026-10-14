@@ -1,7 +1,9 @@
 """Offline fakes test the actual training boundary without downloading weights."""
 
+import hashlib
 import json
 import os
+import shutil
 import sys
 from dataclasses import replace
 from types import SimpleNamespace
@@ -70,6 +72,9 @@ class Tokenizer:
         prefix = self.prefix_tokens if add_special_tokens else []
         suffix = [self.eos_token_id] if add_special_tokens else []
         return SimpleNamespace(input_ids=[*prefix, *([5] * self.text_length), *suffix])
+
+    def decode(self, ids, skip_special_tokens=True):
+        return "target" if 5 in ids else ""
 
     def pad(self, rows, return_tensors):
         count = max(len(row["input_ids"]) for row in rows)
@@ -261,6 +266,117 @@ def test_changed_hub_revision_blocks_resume_before_loaders(runtime):
     assert runtime.events == []
 
 
+@pytest.mark.parametrize("role", ["train", "dev"])
+def test_changed_audio_bytes_block_resume_before_loaders(runtime, role):
+    run(runtime)
+    manifest = getattr(runtime, role)
+    path = runtime.audio / manifest.segments[0].audio
+    path.write_bytes(b"changed audio with the same declared duration")
+    runtime.events.clear()
+
+    with pytest.raises(ValueError, match="different training identity"):
+        run(runtime)
+
+    assert runtime.events == []
+
+
+def test_training_identity_records_undeclared_audio_hashes(runtime):
+    run(runtime)
+    identity = json.loads((runtime.audio.parent / "outputs/training-inputs.json").read_text())
+
+    assert identity["audio_files_sha256"] == {
+        f"{name}.wav": hashlib.sha256(name.encode()).hexdigest() for name in ("train", "dev")
+    }
+    assert runtime.train.segments[0].audio_sha256 is None
+
+
+@pytest.mark.parametrize("resume", [False, True])
+def test_training_identity_without_audio_hashes_cannot_verify_restart(runtime, resume):
+    run(runtime)
+    identity_path = runtime.audio.parent / "outputs/training-inputs.json"
+    identity = json.loads(identity_path.read_text())
+    del identity["audio_files_sha256"]
+    identity_path.write_text(json.dumps(identity))
+    runtime.cfg = replace(runtime.cfg, resume=resume)
+    runtime.events.clear()
+
+    with pytest.raises(ValueError, match="no verifiable audio hashes"):
+        run(runtime)
+
+    assert runtime.events == []
+
+
+def test_training_identity_with_complete_declared_hashes_can_be_migrated(runtime):
+    for role in ("train", "dev"):
+        manifest = getattr(runtime, role)
+        segment = manifest.segments[0]
+        digest = hashlib.sha256((runtime.audio / segment.audio).read_bytes()).hexdigest()
+        setattr(runtime, role, replace(manifest, segments=(replace(segment, audio_sha256=digest),)))
+    run(runtime)
+    identity_path = runtime.audio.parent / "outputs/training-inputs.json"
+    identity = json.loads(identity_path.read_text())
+    del identity["audio_files_sha256"]
+    identity_path.write_text(json.dumps(identity))
+    runtime.events.clear()
+
+    run(runtime)
+
+    assert any(event[0] == "model" for event in runtime.events)
+    assert "audio_files_sha256" in json.loads(identity_path.read_text())
+
+
+@pytest.mark.parametrize("role", ["train", "dev"])
+@pytest.mark.parametrize("alias", ["symlink", "hardlink", "copy"])
+def test_duplicate_audio_windows_under_other_names_fail_preflight(runtime, role, alias):
+    manifest = getattr(runtime, role)
+    segment = manifest.segments[0]
+    original = runtime.audio / segment.audio
+    path = runtime.audio / f"{role}-alias.wav"
+    if alias == "symlink":
+        path.symlink_to(original.name)
+    elif alias == "hardlink":
+        os.link(original, path)
+    else:
+        shutil.copyfile(original, path)
+    duplicate = replace(segment, id=f"{role}-alias", audio=path.name)
+    setattr(runtime, role, replace(manifest, segments=(segment, duplicate)))
+
+    with pytest.raises(ValueError, match="duplicate.*audio windows"):
+        run(runtime)
+
+    assert runtime.events == []
+
+
+def test_distinct_crops_of_one_recording_remain_supported(runtime):
+    segment = runtime.train.segments[0]
+    crop = replace(segment, id="crop", start_s=0.0, duration_s=2.0)
+    runtime.train = replace(runtime.train, segments=(segment, crop))
+
+    run(runtime)
+
+    assert len(runtime.state["trainer"]["train_dataset"]) == 2
+
+
+@pytest.mark.parametrize("role", ["train", "dev"])
+@pytest.mark.parametrize("alias", [False, True])
+def test_eof_tolerance_cannot_hide_duplicate_decoded_windows(runtime, role, alias):
+    manifest = getattr(runtime, role)
+    segment = manifest.segments[0]
+    audio = segment.audio
+    if alias:
+        audio = f"{role}-copy.wav"
+        shutil.copyfile(runtime.audio / segment.audio, runtime.audio / audio)
+    duplicate = replace(
+        segment, id=f"{role}-duplicate", audio=audio, start_s=0.0, duration_s=3.0005
+    )
+    setattr(runtime, role, replace(manifest, segments=(segment, duplicate)))
+
+    with pytest.raises(ValueError, match="duplicate.*audio windows"):
+        run(runtime)
+
+    assert runtime.events == []
+
+
 def use_local_checkpoint(runtime):
     checkpoint = runtime.audio.parent / "base"
     checkpoint.mkdir()
@@ -371,6 +487,36 @@ def test_duration_filtered_overlap_still_blocks(runtime):
     assert runtime.events == []
 
 
+@pytest.mark.parametrize("kind", ["id", "same-file", "copy"])
+def test_development_and_held_out_data_cannot_share_ids_or_audio(runtime, kind):
+    original = runtime.dev.segments[0]
+    held_out = source_manifest("held-out", "test")
+    path = runtime.audio / held_out.segments[0].audio
+    path.write_bytes(b"held-out recording")
+    if kind == "id":
+        held_out = replace(held_out, segments=(replace(held_out.segments[0], id=original.id),))
+    elif kind == "same-file":
+        held_out = replace(
+            held_out, segments=(replace(held_out.segments[0], audio=original.audio),)
+        )
+    else:
+        shutil.copyfile(runtime.audio / original.audio, path)
+
+    with pytest.raises(ValueError, match="hard development/held-out overlap"):
+        run(runtime, held_out_manifests=[held_out])
+
+    assert runtime.events == []
+
+
+def test_distinct_held_out_audio_can_share_development_text(runtime):
+    held_out = source_manifest("held-out", "test", text=runtime.dev.segments[0].text)
+    (runtime.audio / held_out.segments[0].audio).write_bytes(b"held-out recording")
+
+    run(runtime, held_out_manifests=[held_out])
+
+    assert any(event[0] == "model" for event in runtime.events)
+
+
 def test_exact_text_decision_is_saved(runtime):
     runtime.dev = replace(runtime.dev, segments=(replace(runtime.dev.segments[0], text="train"),))
     run(
@@ -428,6 +574,19 @@ def test_enabling_resume_preserves_training_identity(runtime, legacy_identity):
 
     assert ("train", {"resume_from_checkpoint": str(checkpoint)}) in runtime.events
     assert "resume" not in json.loads(identity_path.read_text())["config"]
+
+
+def test_prior_training_identity_rejects_duplicate_json_keys(runtime):
+    run(runtime)
+    identity_path = runtime.audio.parent / "outputs/training-inputs.json"
+    original = identity_path.read_text()
+    identity_path.write_text('{"config": {}, ' + original.lstrip()[1:])
+    runtime.events.clear()
+
+    with pytest.raises(ValueError, match="cannot read prior training identity"):
+        run(runtime)
+
+    assert runtime.events == []
 
 
 @pytest.mark.parametrize("change", ["config", "manifest", "checkpoint"])
@@ -509,6 +668,31 @@ def test_label_capacity_rejects_before_model_weights(runtime, monkeypatch):
     monkeypatch.setattr(Tokenizer, "text_length", 40)
     with pytest.raises(ValueError, match="model capacity"):
         run(runtime)
+    assert [event[0] for event in runtime.events] == ["processor", "config"]
+
+
+@pytest.mark.parametrize("role", ["train", "dev"])
+@pytest.mark.parametrize("target", ["<|endoftext|>", "<|notimestamps|>", "<|0.00|>"])
+def test_targets_removed_by_whisper_decoding_fail_before_model_weights(
+    runtime, monkeypatch, role, target
+):
+    original = Tokenizer.__call__
+
+    def tokenize(tokenizer, text, add_special_tokens=True):
+        if text == target:
+            prefix = tokenizer.prefix_tokens if add_special_tokens else []
+            return SimpleNamespace(input_ids=[*prefix, tokenizer.eos_token_id])
+        return original(tokenizer, text, add_special_tokens)
+
+    monkeypatch.setattr(Tokenizer, "__call__", tokenize)
+    manifest = getattr(runtime, role)
+    setattr(
+        runtime, role, replace(manifest, segments=(replace(manifest.segments[0], text=target),))
+    )
+
+    with pytest.raises(ValueError, match="empty after Whisper decoding"):
+        run(runtime)
+
     assert [event[0] for event in runtime.events] == ["processor", "config"]
 
 

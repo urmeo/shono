@@ -24,6 +24,11 @@ def render_experiment(
 ) -> str:
     """Render measured metrics, or a pending record when metrics is None."""
     rc = run_context
+    tree = ""
+    if rc.git.dirty is None:
+        tree = " (working tree unknown)"
+    elif rc.git.dirty:
+        tree = " (dirty)"
     lines = [
         f"### experiment: {name}",
         f"- **Hypothesis:** {hypothesis}",
@@ -36,7 +41,7 @@ def render_experiment(
         f"{list(data_sources) if data_sources else 'unknown'}; "
         f"timestamped fraction {config.timestamp_sample_fraction:g}",
         f"- **Environment:** python {rc.python} · {rc.platform} · "
-        f"git {rc.git.sha or 'unknown'}{' (dirty)' if rc.git.dirty else ''} · "
+        f"git {rc.git.sha or 'unknown'}{tree} · "
         f"normalizer v{rc.normalizer_version}",
         f"- **Packages:** {_fmt_packages(rc.packages)}",
         f"- **Eval command:** `{eval_command or 'unknown'}`",
