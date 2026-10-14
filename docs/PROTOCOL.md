@@ -73,14 +73,26 @@ configuration, and weights load from the same model ID and revision.
 directories load offline and use SHA256 for every file. Changed Hub revisions
 or local file contents block resume. Local files are checked again after loading.
 
+Short-form inference resolves a Hub configuration once, then loads the model,
+generation settings, and processor at that commit. Local Transformers and
+CTranslate2 inference hash checkpoint files before and after loading and retain
+the loaded identity in prediction metadata.
+
 `resume` controls checkpoint recovery and is excluded from training identity.
 Older records' `config.resume` field is ignored during comparison. All other
 configuration, checkpoint, and manifest fields must match an existing record,
 including when `resume=False`. Use a new output directory for changed inputs.
 
+Training identity also records the verified bytes of every referenced audio
+file. Older records can migrate only when their manifests already contain
+complete, verifiable audio hashes. Otherwise, use a new output directory.
+Keep checkpoint and audio files unchanged during a run.
+
 Preflight rejects selected train and development targets that become empty under
-Bengali normalization v1.1.0, the policy used by training evaluation. Valid target
-text is preserved for tokenization.
+Bengali normalization v1.1.0, including targets emptied by Whisper's removal of
+special tokens. Valid target text is preserved for tokenization. Duplicate
+selected audio windows are rejected even through copied files or aliases;
+window comparisons use the actual validated duration.
 
 ## Optional runtime
 
@@ -148,12 +160,17 @@ heuristics; they do not establish transcription accuracy.
 with recording-local bounds and segment-local word times. Empty output returns
 an empty tuple. CLI `n_chunks` counts input audio windows; `dropped` counts
 rejected decoder segments. Segments without word times retain coarse timing.
+Merging removes matching text only when its timing is already covered. Distinct
+overlapping text is retained with a warning; uncertain boundaries can retain
+repeats. Decoder settings and confidence thresholds are recorded with results.
 
 ## Execution boundaries
 
 - Training requires permitted train and development inputs, declared held-out
   data, and a leakage review. ID or audio overlap blocks execution. Matching
   normalized text requires a recorded decision for the exact text key.
+- Development and held-out inputs cannot share IDs within a source or exact
+  audio bytes. Common text in distinct recordings remains allowed.
 - Short-form input must fit its model window. Long-form adapters require whole
   recordings unless a crop protocol is explicitly implemented.
 - Cloud runs default to disabled and provider allowances default to zero. The
@@ -174,7 +191,8 @@ word boundaries or identify the person speaking.
 RTTM loading supports one channel per selected recording and rejects recordings
 with multiple channels. Files containing multiple recordings require `file_id`.
 Loop annotation CSV files require unique headers and the same number of columns
-in every row, including unused columns.
+in every row, including unused columns. Malformed quoting and missing RTTM
+recording selectors are rejected. Empty transcripts skip speaker-model loading.
 
 ## Scores and artifacts
 
@@ -184,6 +202,13 @@ Report systems declare `model_kind`: `fine_tuned`, `pretrained`, `provider`, or
 Display names do not determine audit requirements. Each JSON result cell retains
 the model kind; report exports and model cards apply the same check. Pending
 results may retain an unknown kind.
+
+Prediction runs retain the manifest hash captured at preflight and stop if the
+file changes before output. Reports reject known manifest-hash or inference-mode
+mismatches. Supplied scoring contexts must match the actual bootstrap seed and
+resample count. Both export formats require the same complete result grid and
+matching score and interval metadata. Model-card rows identify the evaluated
+checkpoint separately from the card's publication name.
 
 | Domain | Normalization |
 | :--- | :--- |

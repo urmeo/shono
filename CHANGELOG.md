@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Persist training audio hashes and reject copied windows, development/test overlap,
+  and targets emptied by Whisper decoding.
+- Retain distinct overlapping transcript text and record loaded decoder identities.
+- Load short-form Whisper components from one resolved checkpoint revision.
+- Validate prediction source hashes, report grids, and bootstrap metadata before export.
+- Identify evaluated checkpoints in model cards and escape generated table text.
+- Reject malformed annotation quoting and skip speaker-model loading for empty transcripts.
 - Separate resume controls from training identity and reject empty normalized targets.
 - Reject multichannel RTTM recordings, duplicate CSV headers, and inconsistent row widths.
 - Use declared model kinds for report and model-card training audit requirements.
