@@ -225,7 +225,7 @@ def test_successful_cli_json_has_coarse_timing_and_warning(tmp_path, monkeypatch
         processing_s=0.5,
         n_chunks=1,
         n_forced_splits=0,
-        filtering=NS(n_dropped=0, summary=lambda: "kept all 1 chunks"),
+        filtering=NS(n_dropped=0, summary=lambda: "kept all 1 decoder segments"),
     )
     monkeypatch.setattr(module, "SileroVAD", lambda: "fake VAD")
     decoder_settings = {}

@@ -126,12 +126,17 @@ def test_invalid_pipeline_geometry_is_rejected_before_vad():
         pipeline.transcribe("fake.wav", float("nan"))
 
 
-def test_pipeline_clock_and_returned_window_are_validated():
-    vad = NS(detect=lambda *_: [SpeechSegment(0, 1)])
-    decoder = NS(transcribe_chunk=lambda *_: ChunkTranscription(0, 2, "text"))
-    with pytest.raises(ValueError, match="different audio window"):
+@pytest.mark.parametrize("start,end", [(0, 2), (0, 0.5)])
+def test_pipeline_rejects_segments_outside_the_requested_window(start, end):
+    vad = NS(detect=lambda *_: [SpeechSegment(0.5, 1)])
+    decoder = NS(transcribe_chunk=lambda *_: (ChunkTranscription(start, end, "text"),))
+    with pytest.raises(ValueError, match="outside its audio window"):
         LongFormTranscriber(vad, decoder, pad_s=0).transcribe("fake.wav", 2)
-    decoder = NS(transcribe_chunk=lambda *_: ChunkTranscription(0, 1, "text"))
+
+
+def test_pipeline_clock_is_validated():
+    vad = NS(detect=lambda *_: [SpeechSegment(0, 1)])
+    decoder = NS(transcribe_chunk=lambda *_: (ChunkTranscription(0, 1, "text"),))
     clock = iter([2, 1])
     with pytest.raises(ValueError, match="processing_s"):
         LongFormTranscriber(vad, decoder, pad_s=0).transcribe(

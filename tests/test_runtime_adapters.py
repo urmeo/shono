@@ -305,14 +305,23 @@ def test_faster_whisper_does_not_invent_missing_word_timestamps(tmp_path, monkey
     monkeypatch.setitem(
         sys.modules, "librosa", NS(load=lambda *a, **kw: (Array([0] * 16000), 16000))
     )
-    segment = NS(text="কথা", words=None, avg_logprob=-0.2, compression_ratio=1, no_speech_prob=0)
+    segment = NS(
+        start=0,
+        end=1,
+        text="কথা",
+        words=None,
+        avg_logprob=-0.2,
+        compression_ratio=1,
+        no_speech_prob=0,
+    )
     adapter = FasterWhisperTranscriber("local-checkpoint", device="cpu", compute_type="int8")
     monkeypatch.setattr(
         adapter, "_load", lambda: NS(transcribe=lambda *a, **kw: (iter([segment]), None))
     )
     result = adapter.transcribe_chunk(str(path), 0, 1)
-    assert result.text == "কথা"
-    assert result.words == ()
+    assert len(result) == 1
+    assert result[0].text == "কথা"
+    assert result[0].words == ()
 
 
 def test_silero_model_load_is_cached_and_validates_input_first(tmp_path, monkeypatch):

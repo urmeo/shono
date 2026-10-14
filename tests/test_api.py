@@ -184,7 +184,7 @@ def test_longform_vad_identity_survives_prediction_export(audio_root, tmp_path, 
 
     class Decoder:
         def transcribe_chunk(self, audio_path, start_s, end_s):
-            return ChunkTranscription(start_s, end_s, "অনুমান")
+            return (ChunkTranscription(start_s, end_s, "অনুমান"),)
 
     vad = SileroVAD()
     monkeypatch.setattr(vad, "detect", lambda path: [SpeechSegment(0, 1)])

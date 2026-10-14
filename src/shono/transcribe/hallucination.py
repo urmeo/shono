@@ -1,4 +1,4 @@
-"""Filter chunks using declared confidence thresholds and retain drop reasons."""
+"""Filter decoder segments using confidence thresholds and retain drop reasons."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class HallucinationConfig:
         probability(self.max_no_speech_prob, "max_no_speech_prob")
 
     def reasons(self, chunk: ChunkTranscription) -> tuple[str, ...]:
-        """Return threshold violations; an empty tuple means the chunk is kept."""
+        """Return threshold violations; an empty tuple means the segment is kept."""
         out: list[str] = []
         if chunk.avg_logprob < self.min_avg_logprob:
             out.append(f"avg_logprob {chunk.avg_logprob:.2f} < {self.min_avg_logprob}")
@@ -37,7 +37,7 @@ class HallucinationConfig:
 
 @dataclass(frozen=True)
 class Dropped:
-    """A rejected chunk and its threshold violations."""
+    """A rejected decoder segment and its threshold violations."""
 
     chunk: ChunkTranscription
     reasons: tuple[str, ...]
@@ -45,7 +45,7 @@ class Dropped:
 
 @dataclass(frozen=True)
 class FilterResult:
-    """Accepted chunks and rejected chunks with reasons."""
+    """Accepted decoder segments and rejected segments with reasons."""
 
     kept: tuple[ChunkTranscription, ...]
     dropped: tuple[Dropped, ...]
@@ -56,14 +56,14 @@ class FilterResult:
 
     def summary(self) -> str:
         if not self.dropped:
-            return f"kept all {len(self.kept)} chunks"
-        return f"kept {len(self.kept)}, dropped {self.n_dropped} as probable hallucinations"
+            return f"kept all {len(self.kept)} decoder segments"
+        return f"kept {len(self.kept)}, dropped {self.n_dropped} decoder segments"
 
 
 def filter_hallucinations(
     chunks: list[ChunkTranscription], config: HallucinationConfig | None = None
 ) -> FilterResult:
-    """Split ``chunks`` into kept and dropped by the confidence guards."""
+    """Apply confidence guards to each decoder segment independently."""
     cfg = config or HallucinationConfig()
     kept: list[ChunkTranscription] = []
     dropped: list[Dropped] = []

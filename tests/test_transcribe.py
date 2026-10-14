@@ -153,10 +153,12 @@ class _FakeTranscriber:
 
     def transcribe_chunk(self, audio_path, start_s, end_s):
         if start_s >= 100:
-            return ChunkTranscription(
-                start_s, end_s, "নকল", no_speech_prob=0.95, words=(Word(0.0, 1.0, "নকল"),)
+            return (
+                ChunkTranscription(
+                    start_s, end_s, "নকল", no_speech_prob=0.95, words=(Word(0.0, 1.0, "নকল"),)
+                ),
             )
-        return ChunkTranscription(start_s, end_s, "ভালো", words=(Word(0.0, 1.0, "ভালো"),))
+        return (ChunkTranscription(start_s, end_s, "ভালো", words=(Word(0.0, 1.0, "ভালো"),)),)
 
 
 def test_pipeline_end_to_end_with_fakes():
@@ -240,7 +242,7 @@ def test_failed_whisper_device_load_does_not_leave_a_cached_model(monkeypatch):
 
 
 @pytest.mark.parametrize("untimed_words", [None, []])
-def test_mixed_word_timings_preserve_all_text_with_coarse_timing(monkeypatch, untimed_words):
+def test_mixed_word_timings_preserve_each_segments_precision(monkeypatch, untimed_words):
     from shono.transcribe import FasterWhisperTranscriber
 
     monkeypatch.setattr("shono.transcribe.pipeline.validate_audio_window", lambda *a: 2)
@@ -248,6 +250,8 @@ def test_mixed_word_timings_preserve_all_text_with_coarse_timing(monkeypatch, un
     monkeypatch.setitem(sys.modules, "numpy", NS(isfinite=lambda audio: NS(all=lambda: True)))
     segments = [
         NS(
+            start=0,
+            end=1,
             text="প্রথম",
             words=[NS(start=0, end=1, word="প্রথম", probability=1)],
             avg_logprob=-0.2,
@@ -255,6 +259,8 @@ def test_mixed_word_timings_preserve_all_text_with_coarse_timing(monkeypatch, un
             no_speech_prob=0,
         ),
         NS(
+            start=1,
+            end=2,
             text="দ্বিতীয়",
             words=untimed_words,
             avg_logprob=-0.2,
@@ -266,8 +272,9 @@ def test_mixed_word_timings_preserve_all_text_with_coarse_timing(monkeypatch, un
     monkeypatch.setattr(
         adapter, "_load", lambda: NS(transcribe=lambda *a, **kw: (iter(segments), None))
     )
-    chunk = adapter.transcribe_chunk("recording.wav", 0, 2)
-    transcript = merge_transcriptions([chunk])
+    segments = adapter.transcribe_chunk("recording.wav", 0, 2)
+    transcript = merge_transcriptions(list(segments))
     assert transcript.text == "প্রথম দ্বিতীয়"
-    assert transcript.segments[0].timing_precision == "chunk"
-    assert chunk.words == ()
+    assert [s.timing_precision for s in transcript.segments] == ["word", "chunk"]
+    assert [(s.start_s, s.end_s) for s in transcript.segments] == [(0, 1), (1, 2)]
+    assert segments[1].words == ()

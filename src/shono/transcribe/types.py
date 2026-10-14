@@ -1,4 +1,4 @@
-"""Validated chunk-local words and recording-local transcripts."""
+"""Validated segment-local words and recording-local transcripts."""
 
 from __future__ import annotations
 
@@ -36,6 +36,8 @@ class Word:
 
 @dataclass(frozen=True)
 class ChunkTranscription:
+    """One decoder segment with recording-local bounds and segment-local words."""
+
     window_start_s: float
     window_end_s: float
     text: str

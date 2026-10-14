@@ -17,11 +17,13 @@ class _FakeVAD:
 
 class _FakeTranscriber:
     def transcribe_chunk(self, audio_path, start_s, end_s):
-        return ChunkTranscription(
-            start_s,
-            end_s,
-            "আমি ভালো",
-            words=(Word(0.0, 1.0, "আমি"), Word(1.0, 2.0, "ভালো")),
+        return (
+            ChunkTranscription(
+                start_s,
+                end_s,
+                "আমি ভালো",
+                words=(Word(0.0, 1.0, "আমি"), Word(1.0, 2.0, "ভালো")),
+            ),
         )
 
 

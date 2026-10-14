@@ -27,7 +27,9 @@ class VoiceActivityDetector(Protocol):
 class ChunkTranscriber(Protocol):
     def transcribe_chunk(
         self, audio_path: str, start_s: float, end_s: float
-    ) -> ChunkTranscription: ...
+    ) -> tuple[ChunkTranscription, ...]:
+        """Return decoder segments within the requested recording window."""
+        ...
 
 
 def real_time_factor(processing_s: float, audio_s: float) -> float:
@@ -103,14 +105,15 @@ class LongFormTranscriber:
             audio_duration_s=duration,
             max_chunks=self.max_chunks,
         )
-        transcriptions = [
-            self.transcriber.transcribe_chunk(audio_path, c.start_s, c.end_s) for c in chunks
-        ]
-        if any(
-            t.window_start_s != c.start_s or t.window_end_s != c.end_s
-            for t, c in zip(transcriptions, chunks, strict=True)
-        ):
-            raise ValueError("transcriber returned a different audio window")
+        transcriptions: list[ChunkTranscription] = []
+        for chunk in chunks:
+            segments = self.transcriber.transcribe_chunk(audio_path, chunk.start_s, chunk.end_s)
+            if any(
+                s.window_start_s < chunk.start_s - 1e-6 or s.window_end_s > chunk.end_s + 1e-6
+                for s in segments
+            ):
+                raise ValueError("decoder segment lies outside its audio window")
+            transcriptions.extend(segments)
         filtered = filter_hallucinations(transcriptions, self.hallucination)
         transcript = merge_transcriptions(list(filtered.kept))
         processing_s = finite_real(now(), "end clock", minimum=0) - started
@@ -227,7 +230,9 @@ class FasterWhisperTranscriber:
             )
         return self._model
 
-    def transcribe_chunk(self, audio_path: str, start_s: float, end_s: float) -> ChunkTranscription:
+    def transcribe_chunk(
+        self, audio_path: str, start_s: float, end_s: float
+    ) -> tuple[ChunkTranscription, ...]:
         time_bounds(start_s, end_s, "transcription window")
         if end_s - start_s > 30:
             raise ValueError("Whisper audio windows must be <= 30 s")
@@ -246,33 +251,36 @@ class FasterWhisperTranscriber:
             word_timestamps=True,
             condition_on_previous_text=False,
         )
-        texts: list[str] = []
-        words: list[Word] = []
-        has_untimed_text = False
-        log_probabilities: list[float] = []
-        compression_ratios: list[float] = []
-        no_speech_probabilities: list[float] = []
+        transcriptions: list[ChunkTranscription] = []
         for segment in segments:
-            texts.append(segment.text)
-            log_probabilities.append(segment.avg_logprob)
-            compression_ratios.append(segment.compression_ratio)
-            no_speech_probabilities.append(segment.no_speech_prob)
-            segment_words = segment.words or ()
-            if segment.text.strip() and not any(word.word.strip() for word in segment_words):
-                has_untimed_text = True
-            words.extend(
-                Word(word.start, word.end, word.word, word.probability) for word in segment_words
+            time_bounds(segment.start, segment.end, "decoder segment")
+            words = tuple(
+                Word(w.start, w.end, w.word, w.probability) for w in (segment.words or ())
             )
-
-        def mean_or_default(values: list[float], default: float) -> float:
-            return sum(values) / len(values) if values else default
-
-        return ChunkTranscription(
-            start_s,
-            end_s,
-            " ".join(t.strip() for t in texts).strip(),
-            mean_or_default(log_probabilities, 0),
-            mean_or_default(compression_ratios, 1),
-            mean_or_default(no_speech_probabilities, 0),
-            () if has_untimed_text else tuple(words),
-        )
+            if segment.text.strip() and not any(w.word.strip() for w in words):
+                words = ()
+            # Word alignment can extend beyond the decoder's segment timestamps.
+            segment_start = min([segment.start, *(w.start_s for w in words)])
+            segment_end = max([segment.end, *(w.end_s for w in words)])
+            if segment_end > end_s - start_s + 1e-6:
+                raise ValueError("decoder segment lies outside its audio window")
+            transcriptions.append(
+                ChunkTranscription(
+                    start_s + segment_start,
+                    start_s + segment_end,
+                    segment.text.strip(),
+                    segment.avg_logprob,
+                    segment.compression_ratio,
+                    segment.no_speech_prob,
+                    tuple(
+                        Word(
+                            w.start_s - segment_start,
+                            w.end_s - segment_start,
+                            w.word,
+                            w.probability,
+                        )
+                        for w in words
+                    ),
+                )
+            )
+        return tuple(transcriptions)
