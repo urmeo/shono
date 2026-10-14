@@ -9,10 +9,9 @@ and Transformers.
 
 This is a prototype. The repository has no project-trained checkpoint or
 measured model accuracy. GPU training and provider inference still need
-validation. The included
-[scorer checks](outputs/scorer-check.csv) use hand-computed text examples; their
-[metadata](outputs/scorer-check.toml) and [chart](outputs/scorer-check.svg) are
-committed with the code.
+validation. The [scorer checks](outputs/scorer-check.csv) use hand-computed text
+examples, with [metadata](outputs/scorer-check.toml) and a
+[chart](outputs/scorer-check.svg).
 
 ## Run the checks
 
@@ -62,9 +61,7 @@ For local recording transcription, follow the
 [CPU runtime setup](docs/PROTOCOL.md#optional-runtime). The CLI accepts an
 existing CTranslate2 checkpoint and defaults to CPU with int8 computation.
 
-The [data and runtime protocol](docs/PROTOCOL.md) also covers input formats,
-source terms, and scoring rules. Configure the paths and run settings before
-using the notebooks in this order:
+Configure paths and run settings, then run the notebooks in this order:
 
 1. [`prepare_data.ipynb`](notebooks/prepare_data.ipynb): validate local datasets and write manifests.
 2. [`baselines.ipynb`](notebooks/baselines.ipynb): transcribe with the selected baseline checkpoints.
