@@ -8,7 +8,7 @@ example, with `AUDIO_ROOT=/kaggle/input`, a clip might be
 `common-voice-bn/clips/example.mp3`.
 
 Validate paths and time windows before loading a model or creating a provider
-client. A manifest describes the audio; it does not contain the audio itself.
+client.
 
 | Field | Contract |
 | :--- | :--- |
@@ -76,9 +76,6 @@ you plan to run; the notebooks specify version ranges.
 | Speaker labels | pyannote.audio `>=4,<5`; access to the selected gated model |
 | Cloud | deepgram-sdk `>=7,<8` or google-cloud-speech `>=2,<3` |
 | Demo | Gradio `>=5,<6`; CT2 transcription and speaker-label dependencies; `HF_TOKEN` with model access |
-
-These commands install audio metadata dependencies, generate a report, and
-inspect the transcription CLI:
 
 ```sh
 uv sync --locked --extra audio
