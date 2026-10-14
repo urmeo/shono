@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Separate resume controls from training identity and reject empty normalized targets.
+- Reject multichannel RTTM recordings, duplicate CSV headers, and inconsistent row widths.
+- Use declared model kinds for report and model-card training audit requirements.
+- Escape model-card table text containing pipes or line breaks.
 - Filter decoder segments before merging text; retain segment scores and timings.
 - Hash local audio during leakage audits and block incomplete hash coverage.
 - Bind training loaders and resume to one Hub commit or hashed local checkpoint.

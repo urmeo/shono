@@ -73,6 +73,15 @@ configuration, and weights load from the same model ID and revision.
 directories load offline and use SHA256 for every file. Changed Hub revisions
 or local file contents block resume. Local files are checked again after loading.
 
+`resume` controls checkpoint recovery and is excluded from training identity.
+Older records' `config.resume` field is ignored during comparison. All other
+configuration, checkpoint, and manifest fields must match an existing record,
+including when `resume=False`. Use a new output directory for changed inputs.
+
+Preflight rejects selected train and development targets that become empty under
+Bengali normalization v1.1.0, the policy used by training evaluation. Valid target
+text is preserved for tokenization.
+
 ## Optional runtime
 
 `./verify` uses the core scoring and development dependencies. It does not
@@ -162,7 +171,19 @@ Speaker attribution first clips speaker turns to detected speech, then labels
 each transcript chunk with its dominant speaker. These labels do not establish
 word boundaries or identify the person speaking.
 
+RTTM loading supports one channel per selected recording and rejects recordings
+with multiple channels. Files containing multiple recordings require `file_id`.
+Loop annotation CSV files require unique headers and the same number of columns
+in every row, including unused columns.
+
 ## Scores and artifacts
+
+Report systems declare `model_kind`: `fine_tuned`, `pretrained`, `provider`, or
+`unknown`. Scored results require a known kind. `fine_tuned` requires
+`training_audit="required"` and a reviewed audit of the declared training mix.
+Display names do not determine audit requirements. Each JSON result cell retains
+the model kind; report exports and model cards apply the same check. Pending
+results may retain an unknown kind.
 
 | Domain | Normalization |
 | :--- | :--- |
