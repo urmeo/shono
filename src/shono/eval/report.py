@@ -16,6 +16,7 @@ from shono.data.manifest import Manifest
 from shono.data.validation import json_object, text_value
 from shono.eval.ci import BootstrapCI, blockwise_bootstrap_ci, validate_bootstrap_settings
 from shono.eval.codeswitch import CS_NORMALIZER_VERSION, code_switch_normalize
+from shono.eval.model import MODEL_KINDS, validate_scored_model
 from shono.eval.normalize import NORMALIZER_VERSION, normalize
 from shono.eval.score import ScoreReport, score
 from shono.output_paths import source_files, validate_output_destinations, write_text_atomic
@@ -144,6 +145,7 @@ class SliceScore:
     pending_reason: str = ""
     model_id: str = "unknown"
     inference_mode: str = "unknown"
+    model_kind: str = "unknown"
 
     @property
     def is_pending(self) -> bool:
@@ -161,6 +163,7 @@ def score_slice(
     leakage_audit: dict | None = None,
     model_id: str = "unknown",
     inference_mode: str = "unknown",
+    model_kind: str = "unknown",
 ) -> SliceScore:
     """Score exact manifest/prediction identities; one block has no CI."""
     validate_bootstrap_settings(n_resamples, 0.95, seed)
@@ -209,6 +212,7 @@ def score_slice(
         leakage_audit=leakage_audit or {"status": "unknown"},
         model_id=model_id,
         inference_mode=inference_mode,
+        model_kind=model_kind,
     )
 
 
@@ -235,6 +239,7 @@ class SystemSpec:
     train_manifests: tuple[str, ...] = ()
     text_decisions: dict[str, dict[str, str]] = field(default_factory=dict)
     pending_slices: dict[str, str] = field(default_factory=dict)
+    model_kind: str = "unknown"
 
     def __post_init__(self) -> None:
         text_value(self.name, "system name")
@@ -253,7 +258,9 @@ class SystemSpec:
             "not_applicable",
         }:
             raise ValueError("training_audit must be required, unknown or not_applicable")
-        if "fine-tuned" in self.name and self.training_audit != "required":
+        if not isinstance(self.model_kind, str) or self.model_kind not in MODEL_KINDS:
+            raise ValueError("model_kind must be fine_tuned, pretrained, provider or unknown")
+        if self.model_kind == "fine_tuned" and self.training_audit != "required":
             raise ValueError("fine-tuned systems require a declared training leakage audit")
         if not isinstance(self.train_manifests, (tuple, list)):
             raise ValueError("train_manifests must be unique paths")
@@ -353,6 +360,7 @@ class ReportSpec:
                 "name",
                 "predictions",
                 "model_id",
+                "model_kind",
                 "inference_modes",
                 "training_audit",
                 "train_manifests",
@@ -374,6 +382,7 @@ class ReportSpec:
                     name=s.get("name"),
                     predictions=s.get("predictions", {}),
                     model_id=s.get("model_id", "unknown"),
+                    model_kind=s.get("model_kind", "unknown"),
                     inference_modes=s.get("inference_modes", {}),
                     training_audit=s.get("training_audit", "unknown"),
                     train_manifests=s.get("train_manifests", ()),
@@ -405,14 +414,10 @@ class Report:
 
     def _validate_release(self) -> None:
         for cell in self.cells:
-            if (
-                cell.status == "scored"
-                and "fine-tuned" in cell.system
-                and cell.leakage_audit.get("status") != "reviewed"
-            ):
-                raise ValueError(
-                    "scored fine-tuned cells require a reviewed declared training audit"
-                )
+            if cell.status not in ("pending", "scored"):
+                raise ValueError("report cell status must be pending or scored")
+            if cell.status == "scored":
+                validate_scored_model(cell.model_kind, cell.leakage_audit)
 
     def cell(self, system: str, slice_name: str) -> SliceScore:
         for cell in self.cells:
@@ -509,6 +514,7 @@ class Report:
                 "input_hashes": cell.input_hashes,
                 "leakage_audit": cell.leakage_audit,
                 "model_id": cell.model_id,
+                "model_kind": cell.model_kind,
                 "inference_mode": cell.inference_mode,
             }
             if cell.is_pending:
@@ -663,6 +669,8 @@ def build_report(
             audit = _audit(
                 system, spec, manifest, item.name, base, scored=available, registry=registry
             )
+            if available:
+                validate_scored_model(system.model_kind, audit)
             input_hashes = {
                 "manifest": hashes.get(item.name, "unknown"),
                 "predictions": "unknown",
@@ -686,6 +694,7 @@ def build_report(
                             else "predictions unavailable"
                         ),
                         model_id=system.model_id,
+                        model_kind=system.model_kind,
                         inference_mode=system.inference_modes.get(item.name, "unknown"),
                     )
                 )
@@ -716,6 +725,7 @@ def build_report(
                     input_hashes=input_hashes,
                     leakage_audit=audit,
                     model_id=system.model_id,
+                    model_kind=system.model_kind,
                     inference_mode=system.inference_modes.get(item.name, "unknown"),
                 )
             )

@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 
+from shono.eval.model import validate_scored_model
+from shono.eval.report import _md
 from shono.transcribe._validation import finite_real
 
 
@@ -118,13 +120,12 @@ def render_model_card(
         cell = cells.get((system, name))
         if cell is None:
             raise ValueError(f"missing model-card cell for {system!r}/{name!r}")
-        if cell.get("status") == "scored" and "fine-tuned" in system:
-            audit = cell.get("leakage_audit")
-            if not isinstance(audit, Mapping) or audit.get("status") != "reviewed":
-                raise ValueError("scored fine-tuned cards require a reviewed training audit")
+        if cell.get("status") == "scored":
+            validate_scored_model(cell.get("model_kind", "unknown"), cell.get("leakage_audit"))
         policy = cell.get("normalization_policy", "unknown")
         version = cell.get("normalizer_version", "unknown")
-        lines.append(f"| {name} | {_wer_str(cell)} | {policy} v{version} |")
+        row = (name, _wer_str(cell), f"{policy} v{version}")
+        lines.append("| " + " | ".join(_md(value) for value in row) + " |")
     lines += ["", f"Protocol and inputs: [Shono]({repo_url})."]
     if limitations:
         lines += ["", "## Limits", "", *[f"- {item}" for item in limitations]]

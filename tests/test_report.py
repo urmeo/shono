@@ -191,7 +191,7 @@ def _spec(base: Path, systems) -> ReportSpec:
         "title": "Test report",
         "n_resamples": 200,
         "slices": [{"name": "tiny", "manifest": "data/tiny.manifest.jsonl", "domain": "long-form"}],
-        "systems": systems,
+        "systems": [{"model_kind": "pretrained", **system} for system in systems],
     }
     path = base / "configs" / "reports" / "t.json"
     path.write_text(json.dumps(spec), encoding="utf-8")
@@ -368,6 +368,7 @@ def test_mixed_policies_and_distinct_contexts(base, registry):
             SystemSpec(
                 "s",
                 {"read": "reports/predictions/read.jsonl", "cs": "reports/predictions/cs.jsonl"},
+                model_kind="pretrained",
             ),
         ),
         n_resamples=100,
@@ -394,6 +395,7 @@ def _fine_spec(base):
         [
             {
                 "name": OUR_SYSTEM,
+                "model_kind": "fine_tuned",
                 "predictions": {"tiny": "reports/predictions/fine.jsonl"},
                 "training_audit": "required",
                 "train_manifests": ["data/train.jsonl"],
@@ -662,15 +664,112 @@ def test_prediction_hash_is_of_raw_bytes_including_crlf(tmp_path):
     assert Predictions.from_jsonl(path).source_sha256 == hashlib.sha256(raw).hexdigest()
 
 
-def test_direct_report_cannot_publish_unreviewed_fine_tuned_cell(base, registry):
-    from shono.protocol import OUR_SYSTEM
-
+@pytest.mark.parametrize("name", ["fine-tuned Whisper", "Fine-tuned Whisper", "custom model"])
+def test_direct_report_cannot_publish_unreviewed_fine_tuned_cell(base, registry, name):
     report = build_report(_spec(base, [{"name": "s", "predictions": {}}]), base, registry)
     manifest = Manifest.from_jsonl(base / "data/tiny.manifest.jsonl")
     cell = score_slice(
-        manifest, Predictions(OUR_SYSTEM, manifest.name, dict(_REFS)), n_resamples=100
+        manifest,
+        Predictions(name, manifest.name, dict(_REFS)),
+        n_resamples=100,
+        slice_name="tiny",
+        model_kind="fine_tuned",
     )
-    report = replace(report, cells=(cell,), system_order=(OUR_SYSTEM,))
+    report = replace(report, cells=(cell,), system_order=(name,))
     with pytest.raises(ValueError, match="reviewed"):
+        write_report(report, base / "outputs")
+    assert not (base / "outputs").exists()
+
+
+@pytest.mark.parametrize("name", ["Fine-tuned Whisper", "WHISPER", "custom model"])
+def test_scored_system_requires_model_kind_metadata(base, registry, name):
+    _predictions_file(base / "reports/predictions/p.jsonl", dict(_REFS), name)
+    _spec(base, [{"name": name, "predictions": {"tiny": "reports/predictions/p.jsonl"}}])
+    path = base / "configs/reports/t.json"
+    raw = json.loads(path.read_text())
+    raw["systems"][0].pop("model_kind", None)
+    path.write_text(json.dumps(raw))
+    spec = ReportSpec.from_json(path)
+    with pytest.raises(ValueError, match="model_kind"):
+        build_report(spec, base, registry)
+
+
+def test_direct_report_cannot_publish_scored_cell_with_unknown_model_kind(base, registry):
+    report = build_report(_spec(base, [{"name": "s", "predictions": {}}]), base, registry)
+    manifest = Manifest.from_jsonl(base / "data/tiny.manifest.jsonl")
+    cell = score_slice(
+        manifest,
+        Predictions("Fine-tuned Whisper", manifest.name, dict(_REFS)),
+        n_resamples=100,
+        slice_name="tiny",
+    )
+    report = replace(report, cells=(cell,), system_order=(cell.system,))
+    with pytest.raises(ValueError, match="model_kind"):
+        write_report(report, base / "outputs")
+    assert not (base / "outputs").exists()
+
+
+@pytest.mark.parametrize("name", ["fine-tuned Whisper", "Fine-tuned Whisper", "custom model"])
+@pytest.mark.parametrize("audit", ["unknown", "not_applicable"])
+def test_fine_tuned_metadata_requires_audit_declaration(name, audit):
+    from shono.eval.report import SystemSpec
+
+    with pytest.raises(ValueError, match="declared training leakage audit"):
+        SystemSpec(name, {}, model_kind="fine_tuned", training_audit=audit)
+
+
+@pytest.mark.parametrize("kind", [None, True, [], "fine-tuned", "PRETRAINED"])
+def test_invalid_model_kind_metadata_is_rejected(kind):
+    from shono.eval.report import SystemSpec
+
+    with pytest.raises(ValueError, match="model_kind"):
+        SystemSpec("s", {}, model_kind=kind)
+
+
+def test_fine_tuned_audit_and_model_kind_survive_system_rename(base, registry):
+    name = "Custom Whisper"
+    _train_manifest(base)
+    _predictions_file(base / "reports/predictions/fine.jsonl", dict(_REFS), name)
+    spec = _fine_spec(base)
+    spec = replace(spec, systems=(replace(spec.systems[0], name=name),))
+    report = build_report(spec, base, registry)
+
+    cell = report.to_json_dict()["cells"][0]
+    assert cell["model_kind"] == "fine_tuned"
+    assert cell["leakage_audit"]["status"] == "reviewed"
+    assert "| Custom Whisper | 0.0%" in report.render_markdown()
+
+
+@pytest.mark.parametrize("kind", ["pretrained", "provider"])
+def test_upstream_model_metadata_is_independent_of_display_name(base, registry, kind):
+    name = "fine-tuned Whisper"
+    _predictions_file(base / "reports/predictions/p.jsonl", dict(_REFS), name)
+    spec = _spec(
+        base,
+        [
+            {
+                "name": name,
+                "model_kind": kind,
+                "predictions": {"tiny": "reports/predictions/p.jsonl"},
+            }
+        ],
+    )
+    cell = build_report(spec, base, registry).to_json_dict()["cells"][0]
+    assert cell["model_kind"] == kind
+    assert cell["leakage_audit"]["status"] == "unknown"
+
+
+@pytest.mark.parametrize("status", ["complete", "SCORED", "", None, False])
+def test_direct_report_rejects_unsupported_cell_status(base, registry, status):
+    report = build_report(_spec(base, [{"name": "s", "predictions": {}}]), base, registry)
+    manifest = Manifest.from_jsonl(base / "data/tiny.manifest.jsonl")
+    cell = score_slice(
+        manifest,
+        Predictions("s", manifest.name, dict(_REFS)),
+        n_resamples=100,
+        slice_name="tiny",
+    )
+    report = replace(report, cells=(replace(cell, status=status),))
+    with pytest.raises(ValueError, match="cell status"):
         write_report(report, base / "outputs")
     assert not (base / "outputs").exists()

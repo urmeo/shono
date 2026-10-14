@@ -24,6 +24,7 @@
     {
       "name": "shono whisper-medium (fine-tuned)",
       "model_id": "unknown",
+      "model_kind": "fine_tuned",
       "predictions": {
         "cv-bn-test": "outputs/shono-medium__cv-bn-test.jsonl",
         "bengali-loop-test": "outputs/shono-medium__bengali-loop-test.jsonl",
@@ -45,6 +46,7 @@
     {
       "name": "tugstugi whisper-medium (base)",
       "model_id": "bengaliAI/tugstugi_bengaliai-asr_whisper-medium",
+      "model_kind": "pretrained",
       "predictions": {
         "cv-bn-test": "outputs/tugstugi-medium__cv-bn-test.jsonl",
         "bengali-loop-test": "outputs/tugstugi-medium__bengali-loop-test.jsonl",
@@ -62,6 +64,7 @@
     {
       "name": "Google Chirp (bn-BD)",
       "model_id": "chirp_2",
+      "model_kind": "provider",
       "predictions": {
         "cv-bn-test": "outputs/google-chirp__cv-bn-test.jsonl",
         "bengali-loop-test": "outputs/google-chirp__bengali-loop-test.jsonl",
@@ -81,6 +84,7 @@
     {
       "name": "Deepgram Nova-3 (bn)",
       "model_id": "nova-3",
+      "model_kind": "provider",
       "predictions": {
         "cv-bn-test": "outputs/deepgram-nova3__cv-bn-test.jsonl",
         "bengali-loop-test": "outputs/deepgram-nova3__bengali-loop-test.jsonl",

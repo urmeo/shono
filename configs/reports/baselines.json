@@ -24,6 +24,7 @@
     {
       "name": "whisper-large-v3 (zero-shot)",
       "model_id": "openai/whisper-large-v3",
+      "model_kind": "pretrained",
       "predictions": {
         "cv-bn-test": "outputs/large-v3__cv-bn-test.jsonl",
         "fleurs-bn-test": "outputs/large-v3__fleurs-bn-test.jsonl",
@@ -41,6 +42,7 @@
     {
       "name": "whisper-large-v3-turbo (zero-shot)",
       "model_id": "openai/whisper-large-v3-turbo",
+      "model_kind": "pretrained",
       "predictions": {
         "cv-bn-test": "outputs/large-v3-turbo__cv-bn-test.jsonl",
         "fleurs-bn-test": "outputs/large-v3-turbo__fleurs-bn-test.jsonl",
@@ -58,6 +60,7 @@
     {
       "name": "tugstugi whisper-medium (base)",
       "model_id": "bengaliAI/tugstugi_bengaliai-asr_whisper-medium",
+      "model_kind": "pretrained",
       "predictions": {
         "cv-bn-test": "outputs/tugstugi-medium__cv-bn-test.jsonl",
         "fleurs-bn-test": "outputs/tugstugi-medium__fleurs-bn-test.jsonl",

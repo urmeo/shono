@@ -148,10 +148,14 @@ def report_spec(name: str) -> dict:
     for slug in systems:
         label, model, provider = _SYSTEMS[slug]
         entries = [matrix[slug, slice_name] for slice_name in slices]
+        model_kind = "pretrained" if provider == "local" else "provider"
+        if slug == "shono-medium":
+            model_kind = "fine_tuned"
         output.append(
             {
                 "name": label,
                 "model_id": model,
+                "model_kind": model_kind,
                 "predictions": {entry.slice_name: entry.predictions for entry in entries},
                 "inference_modes": {entry.slice_name: entry.inference_mode for entry in entries},
                 "training_audit": "required" if slug == "shono-medium" else "unknown",

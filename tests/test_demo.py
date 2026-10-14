@@ -74,6 +74,7 @@ def _report():
                 "system": "ours",
                 "slice": "cv-bn-test",
                 "status": "scored",
+                "model_kind": "pretrained",
                 "normalization_policy": "bengali",
                 "normalizer_version": "1.1.0",
                 "wer_norm": {"point": 0.20, "lo": 0.15, "hi": 0.25},
@@ -101,12 +102,15 @@ def test_model_card_quotes_scored_numbers_and_dashes_pending():
     assert "bn-BD register only" in card
 
 
-def test_model_card_never_invents_a_number_for_pending_only_report():
+@pytest.mark.parametrize("model_kind", [None, "unknown"])
+def test_model_card_allows_pending_unknown_kind_without_inventing_score(model_kind):
     report = {
         "normalizer_version": "1.1.0",
         "slices": ["s"],
         "cells": [{"system": "ours", "slice": "s", "status": "pending"}],
     }
+    if model_kind is not None:
+        report["cells"][0]["model_kind"] = model_kind
     card = render_model_card(
         report,
         model_id="m",
@@ -119,6 +123,52 @@ def test_model_card_never_invents_a_number_for_pending_only_report():
     )
     assert "| s | pending |" in card
     assert re.search(r"\| s \| [\d.]+%", card) is None
+
+
+@pytest.mark.parametrize(
+    ("slice_name", "policy", "version", "expected"),
+    [
+        ("test|extra", "bengali", "1.1.0", r"test\|extra | 20.0% [15.0%, 25.0%] | bengali v1.1.0"),
+        (
+            "test\nextra\rrow",
+            "bengali",
+            "1.1.0",
+            "test extra row | 20.0% [15.0%, 25.0%] | bengali v1.1.0",
+        ),
+        (
+            "test",
+            "bengali|custom\npolicy",
+            "1.1.0",
+            r"test | 20.0% [15.0%, 25.0%] | bengali\|custom policy v1.1.0",
+        ),
+        (
+            "test",
+            "bengali",
+            "1|custom\rversion",
+            r"test | 20.0% [15.0%, 25.0%] | bengali v1\|custom version",
+        ),
+    ],
+)
+def test_model_card_preserves_table_columns_and_rows(slice_name, policy, version, expected):
+    report = _report()
+    report["slices"][0] = slice_name
+    report["cells"][0].update(
+        slice=slice_name, normalization_policy=policy, normalizer_version=version
+    )
+    card = render_model_card(
+        report,
+        model_id="m",
+        system="ours",
+        base_model="b",
+        license_spdx="unknown",
+        base_model_license="unknown",
+        training_status="unknown",
+        repo_url="u",
+    )
+    table_lines = [line for line in card.splitlines() if line.startswith("|")]
+    assert table_lines[2] == f"| {expected} |"
+    assert len(table_lines) == 4
+    assert all(len(re.split(r"(?<!\\)\|", line)) == 5 for line in table_lines)
 
 
 def test_card_requires_explicit_training_and_weight_licenses():
@@ -180,19 +230,73 @@ def test_card_extreme_integer_score_is_a_domain_error():
         )
 
 
+@pytest.mark.parametrize("system", ["fine-tuned Whisper", "Fine-tuned Whisper", "custom model"])
 @pytest.mark.parametrize("audit", [None, [], "reviewed", {"status": "unreviewed"}])
-def test_fine_tuned_card_cannot_publish_unreviewed_scored_cell(audit):
-    from shono.protocol import OUR_SYSTEM
-
+def test_fine_tuned_card_cannot_publish_unreviewed_scored_cell(system, audit):
     report = _report()
     for cell in report["cells"]:
-        cell["system"] = OUR_SYSTEM
-    report["cells"][0]["leakage_audit"] = audit
+        cell["system"] = system
+    report["cells"][0].update(model_kind="fine_tuned", leakage_audit=audit)
     with pytest.raises(ValueError, match="reviewed training audit"):
         render_model_card(
             report,
             model_id="m",
-            system=OUR_SYSTEM,
+            system=system,
+            base_model="b",
+            license_spdx="unknown",
+            base_model_license="unknown",
+            training_status="unknown",
+            repo_url="u",
+        )
+
+
+def test_fine_tuned_card_allows_reviewed_scored_cell():
+    report = _report()
+    report["cells"][0].update(model_kind="fine_tuned", leakage_audit={"status": "reviewed"})
+    card = render_model_card(
+        report,
+        model_id="m",
+        system="ours",
+        base_model="b",
+        license_spdx="unknown",
+        base_model_license="unknown",
+        training_status="trained",
+        repo_url="u",
+    )
+    assert "20.0% [15.0%, 25.0%]" in card
+
+
+@pytest.mark.parametrize("model_kind", ["pretrained", "provider"])
+def test_card_uses_model_kind_rather_than_display_name(model_kind):
+    report = _report()
+    for cell in report["cells"]:
+        cell["system"] = "fine-tuned Whisper"
+    report["cells"][0]["model_kind"] = model_kind
+    card = render_model_card(
+        report,
+        model_id="m",
+        system="fine-tuned Whisper",
+        base_model="b",
+        license_spdx="unknown",
+        base_model_license="unknown",
+        training_status="unknown",
+        repo_url="u",
+    )
+    assert "20.0% [15.0%, 25.0%]" in card
+
+
+@pytest.mark.parametrize("model_kind", [None, "unknown", "Fine-tuned Whisper", False, []])
+def test_scored_card_requires_declared_model_kind(model_kind):
+    report = _report()
+    if model_kind is None:
+        del report["cells"][0]["model_kind"]
+    else:
+        report["cells"][0]["model_kind"] = model_kind
+    with pytest.raises(ValueError, match="model_kind"):
+        render_model_card(
+            report,
+            model_id="m",
+            system="ours",
             base_model="b",
             license_spdx="unknown",
             base_model_license="unknown",
