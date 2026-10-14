@@ -621,6 +621,7 @@ def build_report(
     domains = {}
     license_blocks = {}
     paths = [str(path) for path in source_files(base)]
+    paths.extend(str(base / path) for path in spec.train_manifests)
     if spec.source_path:
         paths.append(spec.source_path)
     for item in spec.slices:

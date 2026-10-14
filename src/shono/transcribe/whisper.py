@@ -44,6 +44,7 @@ class ShortFormWhisperTranscriber:
 
             processor = WhisperProcessor.from_pretrained(self.model_id)
             model = WhisperForConditionalGeneration.from_pretrained(self.model_id)
+            model.generation_config.forced_decoder_ids = None
             device = self.device or ("cuda" if torch.cuda.is_available() else "cpu")
             model.to(device)
             model.eval()
@@ -72,9 +73,16 @@ class ShortFormWhisperTranscriber:
         if len(audio) == 0 or not np.isfinite(audio).all():
             raise ValueError("decoded audio must contain finite samples")
         model, processor = self._load()
-        features = processor(
-            audio, sampling_rate=TARGET_SAMPLE_RATE, return_tensors="pt"
-        ).input_features.to(self.device)
+        inputs = processor(
+            audio,
+            sampling_rate=TARGET_SAMPLE_RATE,
+            return_tensors="pt",
+            return_attention_mask=True,
+        )
+        features = inputs.input_features.to(self.device)
+        attention_mask = inputs.attention_mask.to(self.device)
         with torch.no_grad():
-            ids = model.generate(features, language=self.language, task=self.task)
+            ids = model.generate(
+                features, attention_mask=attention_mask, language=self.language, task=self.task
+            )
         return processor.batch_decode(ids, skip_special_tokens=True)[0].strip()

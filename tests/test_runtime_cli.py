@@ -228,12 +228,20 @@ def test_successful_cli_json_has_coarse_timing_and_warning(tmp_path, monkeypatch
         filtering=NS(n_dropped=0, summary=lambda: "kept all 1 chunks"),
     )
     monkeypatch.setattr(module, "SileroVAD", lambda: "fake VAD")
-    monkeypatch.setattr(module, "FasterWhisperTranscriber", lambda *a, **kw: "fake decoder")
+    decoder_settings = {}
+
+    def make_decoder(*args, **kwargs):
+        decoder_settings.update(kwargs)
+        return "fake decoder"
+
+    monkeypatch.setattr(module, "FasterWhisperTranscriber", make_decoder)
     monkeypatch.setattr(
         module, "LongFormTranscriber", lambda *a, **kw: NS(transcribe=lambda *a: result)
     )
     target = tmp_path / "output" / "transcript.json"
     assert main([str(audio), "--model", str(model), "--json", str(target)]) == 0
+    assert decoder_settings["device"] == "cpu"
+    assert decoder_settings["compute_type"] == "int8"
     data = json.loads(target.read_text())
     assert data["text"] == "বাংলা" and data["segments"][0]["timing_precision"] == "chunk"
     assert data["warnings"] == ["timing approximate"]

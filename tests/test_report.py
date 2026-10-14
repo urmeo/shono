@@ -582,6 +582,30 @@ def test_report_cannot_overwrite_spec(base, registry):
     assert (base / "configs/reports/t.json").read_bytes() == before
 
 
+def test_report_cannot_overwrite_shared_training_manifest(base, registry):
+    from shono.protocol import OUR_SYSTEM
+
+    training = _train_manifest(base)
+    output = base / "outputs"
+    output.mkdir()
+    training_path = output / "t.json"
+    training.to_jsonl(training_path)
+    before = training_path.read_bytes()
+    _predictions_file(base / "reports/predictions/fine.jsonl", dict(_REFS), OUR_SYSTEM)
+    spec = _fine_spec(base)
+    spec = replace(
+        spec,
+        train_manifests=("outputs/t.json",),
+        systems=(replace(spec.systems[0], train_manifests=()),),
+    )
+    report = build_report(spec, base, registry)
+    assert report.cells[0].leakage_audit["status"] == "reviewed"
+    with pytest.raises(ValueError, match="overwrite input"):
+        write_report(report, output)
+    assert training_path.read_bytes() == before
+    assert not (output / "t.md").exists()
+
+
 def test_declared_training_sources_must_pass_license_floor(base, registry):
     from shono.protocol import OUR_SYSTEM
 

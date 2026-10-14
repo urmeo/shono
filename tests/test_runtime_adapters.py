@@ -37,7 +37,13 @@ def fake_numpy(monkeypatch):
     monkeypatch.setitem(
         sys.modules,
         "numpy",
-        NS(isfinite=finite, any=any, abs=lambda data: Array(abs(x) for x in data)),
+        NS(
+            isfinite=finite,
+            any=any,
+            abs=lambda data: Array(abs(x) for x in data),
+            ascontiguousarray=lambda data, *, dtype: data,
+            float32="float32",
+        ),
     )
 
 
@@ -238,9 +244,10 @@ def test_hf_whisper_fake_generation_and_observed_settings(tmp_path, monkeypatch)
             observed["processor"] = name
             return cls()
 
-        def __call__(self, audio, *, sampling_rate, return_tensors):
+        def __call__(self, audio, *, sampling_rate, return_tensors, return_attention_mask):
+            assert return_attention_mask is True
             observed["features"] = (len(audio), sampling_rate, return_tensors)
-            return NS(input_features=Features())
+            return NS(input_features=Features(), attention_mask=Features())
 
         def batch_decode(self, ids, *, skip_special_tokens):
             assert ids == [1] and skip_special_tokens
@@ -248,7 +255,10 @@ def test_hf_whisper_fake_generation_and_observed_settings(tmp_path, monkeypatch)
 
     class Model:
         config = NS(_commit_hash="fake-revision")
-        generation_config = NS(to_dict=lambda: {"num_beams": 5, "do_sample": False})
+        generation_config = NS(
+            forced_decoder_ids=[[1, 2]],
+            to_dict=lambda: {"num_beams": 5, "do_sample": False},
+        )
 
         @classmethod
         def from_pretrained(cls, name):
@@ -261,7 +271,9 @@ def test_hf_whisper_fake_generation_and_observed_settings(tmp_path, monkeypatch)
         def eval(self):
             observed["eval"] = True
 
-        def generate(self, features, *, language, task):
+        def generate(self, features, *, attention_mask, language, task):
+            assert isinstance(attention_mask, Features)
+            assert self.generation_config.forced_decoder_ids is None
             observed["generate"] = (language, task)
             return [1]
 
@@ -307,6 +319,10 @@ def test_silero_model_load_is_cached_and_validates_input_first(tmp_path, monkeyp
     from shono.transcribe.pipeline import SileroVAD
 
     path = wav_file(tmp_path)
+    fake_numpy(monkeypatch)
+    monkeypatch.setitem(
+        sys.modules, "librosa", NS(load=lambda *args, **kwargs: (Array([0] * 32000), 16000))
+    )
     loads = []
 
     def load(*args, **kwargs):
@@ -314,11 +330,11 @@ def test_silero_model_load_is_cached_and_validates_input_first(tmp_path, monkeyp
         return "model", (
             lambda *a, **kw: [{"start": 0, "end": 16000}],
             None,
-            lambda *a, **kw: "audio",
+            lambda *a, **kw: pytest.fail("Silero audio I/O must remain unused"),
             None,
         )
 
-    monkeypatch.setitem(sys.modules, "torch", NS(hub=NS(load=load)))
+    monkeypatch.setitem(sys.modules, "torch", NS(hub=NS(load=load), from_numpy=lambda audio: audio))
     vad = SileroVAD()
     with pytest.raises(ValueError):
         vad.detect(str(tmp_path / "missing.wav"))
@@ -326,3 +342,23 @@ def test_silero_model_load_is_cached_and_validates_input_first(tmp_path, monkeyp
     assert vad.detect(str(path))[0].duration_s == 1
     vad.detect(str(path))
     assert len(loads) == 1
+    assert loads[0] == (
+        ("snakers4/silero-vad:1e261b036686cd0017d500ee96acd1c4ba572a9d", "silero_vad"),
+        {"trust_repo": True, "skip_validation": True},
+    )
+
+
+@pytest.mark.parametrize("samples", [[], [float("nan")], [float("inf")]])
+def test_silero_invalid_decoded_audio_rejects_before_weights(tmp_path, monkeypatch, samples):
+    from shono.transcribe.pipeline import SileroVAD
+
+    path = wav_file(tmp_path)
+    fake_numpy(monkeypatch)
+    monkeypatch.setitem(
+        sys.modules, "librosa", NS(load=lambda *args, **kwargs: (Array(samples), 16000))
+    )
+    monkeypatch.setitem(
+        sys.modules, "torch", NS(hub=NS(load=lambda *args, **kwargs: pytest.fail("no model load")))
+    )
+    with pytest.raises(ValueError, match="finite samples"):
+        SileroVAD().detect(str(path))

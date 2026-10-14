@@ -206,6 +206,8 @@ def test_failed_whisper_device_load_does_not_leave_a_cached_model(monkeypatch):
     processor = object()
 
     class Model:
+        generation_config = NS(forced_decoder_ids=None)
+
         def to(self, device):
             if len(models) == 1:
                 raise RuntimeError("device unavailable")

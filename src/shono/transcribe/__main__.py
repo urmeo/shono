@@ -21,8 +21,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("audio", help="path to the recording")
     parser.add_argument("--model", required=True, help="existing CTranslate2 model directory")
     parser.add_argument("--language", default="bn")
-    parser.add_argument("--device", default="cuda")
-    parser.add_argument("--compute-type", default="float16")
+    parser.add_argument("--device", default="cpu", help="inference device (default: cpu)")
+    parser.add_argument(
+        "--compute-type", default="int8", help="CTranslate2 compute type (default: int8)"
+    )
     parser.add_argument("--max-chunk-s", type=float, default=28.0)
     parser.add_argument("--pad-s", type=float, default=0.2)
     parser.add_argument("--max-chunks", type=int, default=100_000)

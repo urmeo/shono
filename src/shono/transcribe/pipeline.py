@@ -15,6 +15,7 @@ from shono.transcribe.merge import merge_transcriptions
 from shono.transcribe.types import ChunkTranscription, SpeechSegment, Transcript, Word
 
 TARGET_SAMPLE_RATE = 16_000
+_SILERO_REPO = "snakers4/silero-vad:1e261b036686cd0017d500ee96acd1c4ba572a9d"
 
 
 @runtime_checkable
@@ -144,16 +145,23 @@ class SileroVAD:
 
     def detect(self, audio_path: str) -> list[SpeechSegment]:
         validate_audio_window(audio_path)
-        if self._model is None:
-            import torch
+        import librosa
+        import numpy as np
+        import torch
 
+        audio, _ = librosa.load(audio_path, sr=TARGET_SAMPLE_RATE, mono=True)
+        if len(audio) == 0 or not np.isfinite(audio).all():
+            raise ValueError("decoded audio must contain finite samples")
+        wav = torch.from_numpy(np.ascontiguousarray(audio, dtype=np.float32))
+        if self._model is None:
             self._model, self._utils = torch.hub.load(
-                "snakers4/silero-vad",
+                _SILERO_REPO,
                 "silero_vad",
                 trust_repo=True,
+                # Hub validation only recognizes current branch/tag heads, not old commits.
+                skip_validation=True,
             )
-        get_ts, _, read_audio, *_ = self._utils
-        wav = read_audio(audio_path, sampling_rate=TARGET_SAMPLE_RATE)
+        get_ts = self._utils[0]
         stamps = get_ts(
             wav,
             self._model,
