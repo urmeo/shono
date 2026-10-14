@@ -107,6 +107,7 @@ def main(argv: list[str] | None = None) -> int:
             max_chunks=args.max_chunks,
         )
         result = pipeline.transcribe(str(audio), duration)
+        inference = pipeline.observed_runtime_context()
         if output:
             _write_json(
                 output,
@@ -120,6 +121,7 @@ def main(argv: list[str] | None = None) -> int:
                     "n_forced_splits": result.n_forced_splits,
                     "dropped": result.filtering.n_dropped,
                     "warnings": result.transcript.warnings,
+                    "inference": inference,
                     "segments": [asdict(s) for s in result.transcript.segments],
                 },
             )
@@ -128,6 +130,9 @@ def main(argv: list[str] | None = None) -> int:
             f"[{result.n_chunks} chunks | RTF {result.rtf:.2f} | {result.filtering.summary()}]",
             file=sys.stderr,
         )
+        vad = inference["vad"]
+        if isinstance(vad, dict):
+            print(f"VAD: {vad['repository']}@{vad['revision']}", file=sys.stderr)
         for warning in result.transcript.warnings:
             print(f"warning: {warning}", file=sys.stderr)
         return 0

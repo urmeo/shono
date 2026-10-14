@@ -235,8 +235,13 @@ def test_successful_cli_json_has_coarse_timing_and_warning(tmp_path, monkeypatch
         return "fake decoder"
 
     monkeypatch.setattr(module, "FasterWhisperTranscriber", make_decoder)
+    inference = {"vad": {"repository": "fake/vad", "revision": "a" * 40}}
     monkeypatch.setattr(
-        module, "LongFormTranscriber", lambda *a, **kw: NS(transcribe=lambda *a: result)
+        module,
+        "LongFormTranscriber",
+        lambda *a, **kw: NS(
+            transcribe=lambda *a: result, observed_runtime_context=lambda: inference
+        ),
     )
     target = tmp_path / "output" / "transcript.json"
     assert main([str(audio), "--model", str(model), "--json", str(target)]) == 0
@@ -245,6 +250,7 @@ def test_successful_cli_json_has_coarse_timing_and_warning(tmp_path, monkeypatch
     data = json.loads(target.read_text())
     assert data["text"] == "বাংলা" and data["segments"][0]["timing_precision"] == "chunk"
     assert data["warnings"] == ["timing approximate"]
+    assert data["inference"] == inference
     assert audio.read_bytes() == original
 
 
@@ -342,3 +348,35 @@ def test_notebook_diarization_preflight_precedes_models(tmp_path, monkeypatch, i
     with pytest.raises(ValueError, match=expected):
         exec(source, namespace)
     assert reference.read_text(encoding="utf-8").endswith(f"00:00:00,00:00:0{end},1\n")
+
+
+def test_notebook_diarization_report_records_pinned_vad(tmp_path, monkeypatch):
+    from shono.diarize import SpeakerSegment
+    from shono.provenance import RunContext
+    from shono.transcribe import SileroVAD, SpeechSegment
+
+    diar_root = tmp_path / "audio" / "bengali-loop" / "diarization"
+    diar_root.mkdir(parents=True)
+    audio_file(diar_root)
+    (diar_root / "audio.csv").write_text(
+        "start_time,end_time,speaker_id\n00:00:00,00:00:01,1\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        "shono.diarize.PyannoteDiarizer",
+        lambda **kwargs: NS(diarize=lambda path: [SpeakerSegment(0, 1, "A")]),
+    )
+    vad = SileroVAD()
+    monkeypatch.setattr(vad, "detect", lambda path: [SpeechSegment(0, 1)])
+    namespace = {
+        "RUN_DIARIZATION": True,
+        "registry": NS(require=lambda source: NS(status="active")),
+        "AUDIO_ROOT": tmp_path / "audio",
+        "REPO": tmp_path,
+        "os": os,
+        "SileroVAD": lambda: vad,
+        "RunContext": RunContext,
+    }
+    exec(notebook_code("predict", "if RUN_DIARIZATION:"), namespace)
+    report = (tmp_path / "outputs" / "diarization.md").read_text()
+    assert "snakers4/silero-vad@1e261b036686cd0017d500ee96acd1c4ba572a9d" in report
+    assert "threshold 0.5; minimum speech 250 ms" in report

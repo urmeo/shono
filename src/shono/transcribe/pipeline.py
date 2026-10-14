@@ -74,6 +74,15 @@ class LongFormTranscriber:
         self.max_chunks = max_chunks
         self.hallucination = hallucination or HallucinationConfig()
 
+    def observed_runtime_context(self) -> dict:
+        observer = getattr(self.vad, "observed_runtime_context", None)
+        return {
+            "vad": observer() if callable(observer) else "unknown",
+            "max_chunk_s": self.max_chunk_s,
+            "pad_s": self.pad_s,
+            "max_chunks": self.max_chunks,
+        }
+
     def transcribe(
         self,
         audio_path: str,
@@ -123,6 +132,9 @@ class LongFormPipelineTranscriber:
     def __init__(self, pipeline: LongFormTranscriber) -> None:
         self.pipeline = pipeline
 
+    def observed_runtime_context(self) -> dict:
+        return self.pipeline.observed_runtime_context()
+
     def transcribe(
         self, audio_path: str, start_s: float | None = None, duration_s: float | None = None
     ) -> str:
@@ -142,6 +154,17 @@ class SileroVAD:
         self.min_speech_ms = min_speech_ms
         self._model = None
         self._utils = None
+
+    def observed_runtime_context(self) -> dict:
+        repository, revision = _SILERO_REPO.split(":", 1)
+        return {
+            "repository": repository,
+            "revision": revision,
+            "entrypoint": "silero_vad",
+            "threshold": self.threshold,
+            "min_speech_ms": self.min_speech_ms,
+            "sampling_rate": TARGET_SAMPLE_RATE,
+        }
 
     def detect(self, audio_path: str) -> list[SpeechSegment]:
         validate_audio_window(audio_path)

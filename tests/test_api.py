@@ -169,3 +169,38 @@ def test_observed_runtime_metadata_is_recorded_and_redacted(audio_root):
     assert predictions.run_context == {
         "observed_runtime": {"device": "cpu", "api_key": "[redacted]"}
     }
+
+
+def test_longform_vad_identity_survives_prediction_export(audio_root, tmp_path, monkeypatch):
+    from shono.data import Segment
+    from shono.eval.report import Predictions
+    from shono.transcribe import (
+        ChunkTranscription,
+        LongFormPipelineTranscriber,
+        LongFormTranscriber,
+        SileroVAD,
+        SpeechSegment,
+    )
+
+    class Decoder:
+        def transcribe_chunk(self, audio_path, start_s, end_s):
+            return ChunkTranscription(start_s, end_s, "অনুমান")
+
+    vad = SileroVAD()
+    monkeypatch.setattr(vad, "detect", lambda path: [SpeechSegment(0, 1)])
+    adapter = LongFormPipelineTranscriber(LongFormTranscriber(vad, Decoder(), pad_s=0))
+    manifest = Manifest(
+        "synthetic",
+        "synthetic",
+        "test",
+        "long-form",
+        "fixture",
+        (Segment("recording", "rec-loop-01.wav", "সঠিক", 20, "recording"),),
+    )
+    predictions = run_over_manifest(adapter, manifest, "synthetic", audio_root=audio_root)
+    path = tmp_path / "predictions.jsonl"
+    predictions.to_jsonl(path)
+    metadata = Predictions.from_jsonl(path).run_context["observed_runtime"]
+    assert metadata["vad"] == vad.observed_runtime_context()
+    assert metadata["vad"]["revision"] == "1e261b036686cd0017d500ee96acd1c4ba572a9d"
+    assert metadata["pad_s"] == 0

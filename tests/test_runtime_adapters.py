@@ -346,6 +346,14 @@ def test_silero_model_load_is_cached_and_validates_input_first(tmp_path, monkeyp
         ("snakers4/silero-vad:1e261b036686cd0017d500ee96acd1c4ba572a9d", "silero_vad"),
         {"trust_repo": True, "skip_validation": True},
     )
+    assert vad.observed_runtime_context() == {
+        "repository": "snakers4/silero-vad",
+        "revision": "1e261b036686cd0017d500ee96acd1c4ba572a9d",
+        "entrypoint": "silero_vad",
+        "threshold": 0.5,
+        "min_speech_ms": 250,
+        "sampling_rate": 16000,
+    }
 
 
 @pytest.mark.parametrize("samples", [[], [float("nan")], [float("inf")]])
