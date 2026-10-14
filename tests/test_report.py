@@ -25,6 +25,7 @@ _TINY = (
     .replace('"source": "bengali_loop"', '"source": "synthetic_fixture"')
 )
 _LICENSES = Path(__file__).resolve().parents[1] / "data" / "licenses.json"
+_TRAIN_AUDIO_HASH = hashlib.sha256(b"synthetic training audio").hexdigest()
 
 _REFS = {
     "loop01-000": "আজকে আমরা কথা বলব বাংলা ভাষা নিয়ে",
@@ -68,7 +69,19 @@ def _synthetic_license():
 @pytest.fixture
 def base(tmp_path: Path) -> Path:
     (tmp_path / "data").mkdir()
-    (tmp_path / "data" / "tiny.manifest.jsonl").write_text(_TINY, encoding="utf-8")
+    manifest_path = tmp_path / "data" / "tiny.manifest.jsonl"
+    manifest_path.write_text(_TINY, encoding="utf-8")
+    manifest = Manifest.from_jsonl(manifest_path)
+    replace(
+        manifest,
+        segments=tuple(
+            replace(
+                seg,
+                audio_sha256=hashlib.sha256(f"synthetic audio: {seg.audio}".encode()).hexdigest(),
+            )
+            for seg in manifest.segments
+        ),
+    ).to_jsonl(manifest_path)
     (tmp_path / "data" / "licenses.json").write_text(
         json.dumps({"licenses": [asdict(_synthetic_license())]}), encoding="utf-8"
     )
@@ -389,7 +402,13 @@ def _fine_spec(base):
     )
 
 
-def _train_manifest(base, *, text="ভিন্ন প্রশিক্ষণ বাক্য", sid="train-a", checksum=None):
+def _train_manifest(
+    base,
+    *,
+    text="ভিন্ন প্রশিক্ষণ বাক্য",
+    sid="train-a",
+    checksum=_TRAIN_AUDIO_HASH,
+):
     manifest = Manifest(
         "train",
         "synthetic_fixture",
@@ -444,8 +463,8 @@ def test_fine_tuned_text_collision_needs_exact_review(base, registry):
     )
     report = build_report(replace(spec, systems=(system,)), base, registry)
     audit = report.to_json_dict()["cells"][0]["leakage_audit"]
-    assert audit["status"] == "reviewed" and audit["audio_coverage"] == 0
-    assert audit["train_hashed"] == 0 and audit["eval_hashed"] == 0
+    assert audit["status"] == "reviewed" and audit["audio_coverage"] == 1
+    assert audit["train_hashed"] == 1 and audit["eval_hashed"] == 5
     assert audit["reviewed_text"][0]["reason"].startswith("Synthetic")
     assert (
         audit["training_input_hashes"]["data/train.jsonl"]
@@ -459,6 +478,20 @@ def test_hard_overlap_cannot_be_reviewed_away(base, registry):
     _train_manifest(base, sid="loop01-000")
     _predictions_file(base / "reports/predictions/fine.jsonl", dict(_REFS), OUR_SYSTEM)
     with pytest.raises(ValueError, match="overlap"):
+        build_report(_fine_spec(base), base, registry)
+
+
+@pytest.mark.parametrize("missing_side", ["train", "evaluation"])
+def test_fine_tuned_scoring_rejects_incomplete_hash_audit(base, registry, missing_side):
+    from shono.protocol import OUR_SYSTEM
+
+    if missing_side == "train":
+        _train_manifest(base, checksum=None)
+    else:
+        _train_manifest(base)
+        (base / "data/tiny.manifest.jsonl").write_text(_TINY, encoding="utf-8")
+    _predictions_file(base / "reports/predictions/fine.jsonl", dict(_REFS), OUR_SYSTEM)
+    with pytest.raises(ValueError, match="incomplete train/evaluation leakage audit"):
         build_report(_fine_spec(base), base, registry)
 
 

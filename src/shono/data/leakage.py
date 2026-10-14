@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from shono.data.audio_paths import validate_audio_paths
+from shono.data.audio_paths import file_sha256, validate_audio_paths
 from shono.data.manifest import Manifest
 from shono.data.validation import text_value
 from shono.eval.normalize import normalize
@@ -48,17 +48,31 @@ class LeakageReport:
         return [o for o in self.overlaps if o.kind == kind]
 
     @property
+    def is_complete(self) -> bool:
+        return (
+            set(_KINDS).issubset(self.checked_kinds)
+            and self.train_total > 0
+            and self.eval_total > 0
+            and self.train_hashed == self.train_total
+            and self.eval_hashed == self.eval_total
+        )
+
+    @property
     def is_clean(self) -> bool:
-        return not self.overlaps
+        return self.is_complete and not self.overlaps
 
     @property
     def is_approved(self) -> bool:
-        return not any(o.kind != "text" for o in self.overlaps) and {
-            o.key for o in self.by_kind("text")
-        } == {r.key for r in self.reviewed_text}
+        return (
+            self.is_complete
+            and not any(o.kind != "text" for o in self.overlaps)
+            and {o.key for o in self.by_kind("text")} == {r.key for r in self.reviewed_text}
+        )
 
     def summary(self) -> str:
-        if self.is_clean:
+        if not self.is_complete:
+            state = "INCOMPLETE"
+        elif self.is_clean:
             state = "CLEAN"
         elif self.is_approved:
             state = "REVIEWED"
@@ -99,7 +113,7 @@ def audit_leakage(
     check: Sequence[str] = _KINDS,
     audio_root: str | Path | None = None,
 ) -> LeakageReport:
-    """Inspect source-qualified IDs, normalized text, hashes and known files."""
+    """Inspect IDs, normalized text and file hashes; read bytes when audio_root is set."""
     if (
         not check
         or any(not isinstance(k, str) or k not in _KINDS for k in check)
@@ -112,33 +126,46 @@ def audit_leakage(
     if not trains:
         raise ValueError("need at least one training manifest to audit against")
     overlaps = []
+    kinds = tuple(check)
+    if audio_root is not None:
+        file_hashes: dict[tuple[int, int], str] = {}
+
+        def file_index(manifests):
+            hashed = []
+            index = defaultdict(list)
+            names = defaultdict(set)
+            for manifest in manifests:
+                paths = validate_audio_paths(manifest, audio_root)
+                segments = []
+                for seg, path in zip(manifest.segments, paths, strict=True):
+                    stat = path.stat()
+                    key = (stat.st_dev, stat.st_ino)
+                    if key not in file_hashes:
+                        file_hashes[key] = file_sha256(path)
+                    digest = file_hashes[key]
+                    if seg.audio_sha256 is not None and seg.audio_sha256 != digest:
+                        raise ValueError(
+                            f"segment {seg.id!r}: audio_sha256 does not match file bytes"
+                        )
+                    segments.append(replace(seg, audio_sha256=digest))
+                    index[key].append(f"{manifest.name}:{seg.id}")
+                    names[key].add(seg.audio)
+                hashed.append(replace(manifest, segments=tuple(segments)))
+            return hashed, index, names
+
+        trains, left, left_names = file_index(trains)
+        evaluations, right, right_names = file_index([evaluation])
+        evaluation = evaluations[0]
+        for key in sorted(left.keys() & right.keys()):
+            name = "same-file:" + "|".join(sorted(left_names[key] | right_names[key]))
+            overlaps.append(Overlap("file", name, tuple(left[key]), tuple(right[key])))
+        kinds += ("file",)
     for kind in check:
         left, right = _index(trains, kind), _index([evaluation], kind)
         overlaps.extend(
             Overlap(kind, key, tuple(left[key]), tuple(right[key]))
             for key in sorted(left.keys() & right.keys())
         )
-    kinds = tuple(check)
-    if audio_root is not None:
-
-        def file_index(manifests):
-            index = defaultdict(list)
-            names = defaultdict(set)
-            for manifest in manifests:
-                paths = validate_audio_paths(manifest, audio_root)
-                for seg, path in zip(manifest.segments, paths, strict=True):
-                    stat = path.stat()
-                    key = (stat.st_dev, stat.st_ino)
-                    index[key].append(f"{manifest.name}:{seg.id}")
-                    names[key].add(seg.audio)
-            return index, names
-
-        left, left_names = file_index(trains)
-        right, right_names = file_index([evaluation])
-        for key in sorted(left.keys() & right.keys()):
-            name = "same-file:" + "|".join(sorted(left_names[key] | right_names[key]))
-            overlaps.append(Overlap("file", name, tuple(left[key]), tuple(right[key])))
-        kinds += ("file",)
     train_segs = [seg for manifest in trains for seg in manifest.segments]
     eval_segs = evaluation.segments
     train_hashed = sum(seg.audio_sha256 is not None for seg in train_segs)
@@ -177,6 +204,11 @@ def require_no_leakage(
     report = audit_leakage(trains, evaluation, audio_root=audio_root)
     if any(overlap.kind != "text" for overlap in report.overlaps):
         raise ValueError(f"hard train/evaluation overlap: {report.summary()}")
+    if not report.is_complete:
+        raise ValueError(
+            f"incomplete train/evaluation leakage audit: {report.summary()} "
+            "Provide audio_root to compute missing hashes, or declare every audio_sha256."
+        )
     decisions = {} if text_decisions is None else text_decisions
     if not isinstance(decisions, Mapping):
         raise ValueError("text_decisions must map exact normalized keys to review reasons")

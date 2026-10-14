@@ -217,10 +217,14 @@ def test_hardlinks_are_hard_leakage_without_hashes(tmp_path):
 
 
 def test_ids_are_source_qualified_and_text_review_is_exact():
-    train = manifest(segment(text="বাক্য"))
-    evaluation = manifest(segment(text="অন্য"), name="dev", source="other", split="dev")
+    train = manifest(segment(text="বাক্য", audio_sha256="a" * 64))
+    evaluation = manifest(
+        segment(text="অন্য", audio_sha256="b" * 64), name="dev", source="other", split="dev"
+    )
     assert require_no_leakage(train, evaluation).is_clean
-    evaluation = replace(evaluation, segments=(segment(id="b", text="বাক্য।"),))
+    evaluation = replace(
+        evaluation, segments=(segment(id="b", text="বাক্য।", audio_sha256="b" * 64),)
+    )
     with pytest.raises(ValueError, match="exact-key"):
         require_no_leakage(train, evaluation)
     report = require_no_leakage(
@@ -242,6 +246,8 @@ def test_hash_coverage_does_not_hide_missing_eval():
     report = audit_leakage(train, evaluation)
     assert report.train_hashed == 1000 and report.eval_hashed == 0
     assert "eval 0/1" in report.summary() and "100%" not in report.summary()
+    assert not report.is_complete and not report.is_approved
+    assert report.summary().startswith("INCOMPLETE:")
 
 
 @pytest.mark.parametrize("side", ["train", "evaluation"])
