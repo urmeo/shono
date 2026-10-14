@@ -11,7 +11,7 @@ def make_transcribe_fn(
     device: str = "cpu",
     compute_type: str = "int8",
 ):
-    """Build a function that transcribes an audio file and formats its speaker labels."""
+    """Build a transcription callback that formats speaker labels."""
     from shono.demo.pipeline import format_transcript, transcribe_recording
     from shono.diarize import PyannoteDiarizer
     from shono.transcribe import FasterWhisperTranscriber, LongFormTranscriber, SileroVAD

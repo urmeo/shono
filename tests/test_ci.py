@@ -1,5 +1,3 @@
-"""Check blockwise bootstrap estimates, deterministic intervals, and invalid inputs."""
-
 import json
 from pathlib import Path
 

@@ -1,5 +1,3 @@
-"""Check metadata, dataset joins and local audio paths."""
-
 import json
 import os
 import wave

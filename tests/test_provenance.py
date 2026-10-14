@@ -1,5 +1,3 @@
-"""Check JSON-safe run metadata and reproducible random seeds."""
-
 import json
 import random
 import subprocess

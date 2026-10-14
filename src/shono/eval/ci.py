@@ -27,7 +27,6 @@ class BootstrapCI:
 
 
 def validate_bootstrap_settings(n_resamples: int, confidence: float, seed: int) -> None:
-    """Validate the bootstrap protocol before any work."""
     if (
         isinstance(n_resamples, bool)
         or not isinstance(n_resamples, int)

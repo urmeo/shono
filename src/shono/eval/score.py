@@ -81,12 +81,11 @@ def score(
     normalizer: Callable[[str], str] = normalize,
     normalizer_version: str = NORMALIZER_VERSION,
 ) -> ScoreReport:
-    """Score a corpus raw and under a normalization pipeline (the frozen one by default).
+    """Score raw and normalized WER/CER with the frozen normalizer by default.
 
-    ``normalizer`` defaults to the frozen pipeline; the code-switch slice passes its
-    documented variant (:func:`shono.eval.codeswitch.code_switch_normalize`) with the
-    matching version, so the stamped ``normalizer_version`` always names the pipeline
-    that produced the normalized numbers.
+    The code-switch slice uses :func:`shono.eval.codeswitch.code_switch_normalize`
+    with its matching version. ``normalizer_version`` identifies the pipeline
+    that produced the normalized scores.
     """
     _validate(references, hypotheses)
     norm_refs = [normalizer(r) for r in references]

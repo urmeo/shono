@@ -1,5 +1,3 @@
-"""Check ID, text, and audio overlap detection, including non-overlapping inputs."""
-
 from shono.data import Manifest, Segment, audit_leakage
 
 

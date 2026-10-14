@@ -100,7 +100,7 @@ class LicenseRegistry:
         return len(self._by_id)
 
     def require(self, source_id: str) -> DatasetLicense:
-        """Return the license for ``source_id`` or raise with an actionable message."""
+        """Return the source license or raise KeyError if it is unregistered."""
         try:
             return self._by_id[source_id]
         except KeyError:

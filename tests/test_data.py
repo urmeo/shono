@@ -1,5 +1,3 @@
-"""Check manifest round trips, validation, and license requirements."""
-
 import json
 from pathlib import Path
 

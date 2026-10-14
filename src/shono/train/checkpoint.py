@@ -47,7 +47,7 @@ def find_latest_checkpoint(output_dir: str | Path) -> Path | None:
 
 @dataclass(frozen=True)
 class ResumeDecision:
-    """What a restart should do: resume from a checkpoint, or start fresh."""
+    """Whether to resume from a checkpoint or start fresh."""
 
     resume: bool
     checkpoint: Path | None

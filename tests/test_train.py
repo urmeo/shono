@@ -1,5 +1,3 @@
-"""Check training settings, resume selection, examples and experiment records."""
-
 import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
