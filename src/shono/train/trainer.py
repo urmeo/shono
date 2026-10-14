@@ -16,6 +16,7 @@ from shono.train.checkpoint import decide_resume
 from shono.train.config import TrainConfig
 from shono.train.data import build_examples
 from shono.train.output import validate_training_output
+from shono.train.source import checkpoint_identity
 
 
 def to_training_arguments(config: TrainConfig, **overrides: Any):
@@ -150,12 +151,22 @@ def run_training(
         )
         for manifest in evaluation
     ]
-    out = validate_training_output(config.output_dir, audio_root)
+    base_checkpoint = checkpoint_identity(config.model_id, config.model_revision)
+    out = validate_training_output(
+        config.output_dir, audio_root, checkpoint_root=base_checkpoint.get("path")
+    )
+    if base_checkpoint["source"] == "local":
+        model_id = base_checkpoint["path"]
+        load_options = {"local_files_only": True}
+    else:
+        model_id = config.model_id
+        load_options = {"revision": config.model_revision}
     resume = decide_resume(out, enabled=config.resume)
     identity = json.loads(
         json.dumps(
             {
                 "config": config.to_dict(),
+                "base_checkpoint": base_checkpoint,
                 "manifests": [asdict(m) for m in all_manifests],
                 "leakage": [asdict(report) for report in audits],
             },
@@ -186,9 +197,9 @@ def run_training(
     from shono.train.audio import WhisperFineTuneDataset
 
     processor = WhisperProcessor.from_pretrained(
-        config.model_id, language=config.language, task=config.task
+        model_id, language=config.language, task=config.task, **load_options
     )
-    model_config = WhisperConfig.from_pretrained(config.model_id)
+    model_config = WhisperConfig.from_pretrained(model_id, **load_options)
     dataset_options = dict(
         audio_root=audio_root,
         max_target_positions=model_config.max_target_positions,
@@ -198,7 +209,9 @@ def run_training(
     eval_ds = WhisperFineTuneDataset(eval_examples, processor, config, **dataset_options)
     train_ds.validate_labels()
     eval_ds.validate_labels()
-    model = WhisperForConditionalGeneration.from_pretrained(config.model_id)
+    model = WhisperForConditionalGeneration.from_pretrained(model_id, **load_options)
+    if checkpoint_identity(config.model_id, config.model_revision) != base_checkpoint:
+        raise ValueError("local base checkpoint changed while loading")
     model.generation_config.language = config.language
     model.generation_config.task = config.task
     model.generation_config.return_timestamps = False

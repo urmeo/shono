@@ -11,10 +11,16 @@ def _within(path: Path, parent: Path) -> bool:
     return child[: len(ancestor)] == ancestor
 
 
-def validate_training_output(output_dir: str | Path, audio_root: str | Path) -> Path:
+def validate_training_output(
+    output_dir: str | Path, audio_root: str | Path, *, checkpoint_root: str | Path | None = None
+) -> Path:
     out, audio = resolved_path(output_dir), resolved_path(audio_root)
     if _within(out, audio) or _within(audio, out):
         raise ValueError("output_dir and input audio_root must be disjoint")
+    if checkpoint_root is not None:
+        checkpoint = resolved_path(checkpoint_root)
+        if _within(out, checkpoint) or _within(checkpoint, out):
+            raise ValueError("output_dir and local base checkpoint must be disjoint")
     repo = Path(__file__).resolve().parents[3]
     if (repo / "src" / "shono").is_dir():
         if _within(repo, out) or any(

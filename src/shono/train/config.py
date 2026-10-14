@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 
 from shono.data.validation import real_number, text_value
+from shono.train.source import local_checkpoint
 
 _OPTIMIZERS = frozenset({"adamw_bnb_8bit", "adamw_torch", "adafactor"})
 _SCHEDULERS = frozenset({"cosine", "linear", "constant_with_warmup"})
@@ -16,6 +17,7 @@ class TrainConfig:
 
     model_id: str
     output_dir: str
+    model_revision: str | None = None
     language: str = "bn"
     task: str = "transcribe"
 
@@ -53,6 +55,7 @@ class TrainConfig:
             raise ValueError("output_dir is required (where checkpoints are written)")
         text_value(self.model_id, "model_id")
         text_value(self.output_dir, "output_dir")
+        local_checkpoint(self.model_id, self.model_revision)
         text_value(self.language, "language")
         for key in ("task", "optim", "lr_scheduler_type"):
             text_value(getattr(self, key), key)

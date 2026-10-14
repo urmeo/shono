@@ -19,7 +19,7 @@ from shono.train import (
 
 
 def _config(**over) -> TrainConfig:
-    base = dict(model_id="base/whisper-medium-bn", output_dir="/tmp/out")
+    base = dict(model_id="base/whisper-medium-bn", model_revision="a" * 40, output_dir="/tmp/out")
     base.update(over)
     return TrainConfig(**base)
 
@@ -34,6 +34,37 @@ def test_config_defaults_are_the_recipe():
 def test_config_requires_model_id():
     with pytest.raises(ValueError, match="model_id is required"):
         TrainConfig(model_id="", output_dir="/tmp/o")
+
+
+@pytest.mark.parametrize("revision", [None, "main", "v1.0", "a" * 7, "g" * 40, 123])
+def test_remote_model_requires_immutable_revision(revision):
+    with pytest.raises(ValueError, match="model_revision.*40-character Hub commit"):
+        _config(model_revision=revision)
+
+
+@pytest.mark.parametrize(
+    "model_id",
+    [
+        "http://example.invalid/model",
+        "https://example.invalid/model",
+        "https://huggingface.co/openai/whisper-tiny",
+    ],
+)
+def test_remote_urls_cannot_bypass_hub_revision_binding(model_id):
+    with pytest.raises(ValueError, match="Hub repository ID"):
+        _config(model_id=model_id)
+
+
+def test_local_model_has_no_hub_revision(tmp_path):
+    config = _config(model_id=str(tmp_path), model_revision=None)
+    assert config.model_revision is None
+    with pytest.raises(ValueError, match="content hashes"):
+        _config(model_id=str(tmp_path))
+
+
+def test_missing_local_checkpoint_does_not_fall_back_to_hub(tmp_path):
+    with pytest.raises(ValueError, match="directory does not exist"):
+        _config(model_id=str(tmp_path / "missing"))
 
 
 def test_config_rejects_unknown_optimizer():

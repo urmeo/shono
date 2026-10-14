@@ -14,6 +14,8 @@ from shono.train import TrainConfig, TrainExample, build_examples, run_training
 from shono.train.audio import WhisperFineTuneDataset
 from shono.train.trainer import DataCollatorSpeechSeq2Seq
 
+MODEL_REVISION = "a" * 40
+
 
 class Scalar:
     def __init__(self, value):
@@ -123,9 +125,10 @@ def runtime(tmp_path, monkeypatch):
     train = source_manifest("train", "train")
     dev = source_manifest("dev", "dev")
     for manifest in (train, dev):
-        (audio / manifest.segments[0].audio).write_bytes(b"fixture")
+        (audio / manifest.segments[0].audio).write_bytes(manifest.name.encode())
     cfg = TrainConfig(
         model_id="synthetic/base",
+        model_revision=MODEL_REVISION,
         output_dir=str(tmp_path / "outputs"),
         optim="adamw_torch",
         fp16=False,
@@ -143,14 +146,14 @@ def runtime(tmp_path, monkeypatch):
 
     class Config:
         @staticmethod
-        def from_pretrained(model_id):
-            events.append(("config", model_id))
+        def from_pretrained(model_id, **kwargs):
+            events.append(("config", model_id, kwargs))
             return SimpleNamespace(max_target_positions=32, decoder_start_token_id=1)
 
     class Model:
         @staticmethod
-        def from_pretrained(model_id):
-            events.append(("model", model_id))
+        def from_pretrained(model_id, **kwargs):
+            events.append(("model", model_id, kwargs))
 
             class Loaded:
                 config = SimpleNamespace(decoder_start_token_id=1, use_cache=True)
@@ -232,6 +235,98 @@ def test_trainer_evaluates_freezes_saves_and_returns_final_metrics(runtime):
     identity = json.loads((runtime.audio.parent / "outputs/training-inputs.json").read_text())
     assert identity["manifests"][0]["name"] == "train"
     assert identity["leakage"][0]["eval_total"] == 1
+
+
+def test_all_remote_loaders_use_same_persisted_immutable_revision(runtime):
+    run(runtime)
+    loaders = [event for event in runtime.events if event[0] in {"processor", "config", "model"}]
+    assert len(loaders) == 3
+    assert all(event[1] == runtime.cfg.model_id for event in loaders)
+    assert all(event[2]["revision"] == MODEL_REVISION for event in loaders)
+    identity = json.loads((runtime.audio.parent / "outputs/training-inputs.json").read_text())
+    assert identity["config"]["model_revision"] == MODEL_REVISION
+    assert identity["base_checkpoint"] == {
+        "source": "hub",
+        "model_id": runtime.cfg.model_id,
+        "revision": MODEL_REVISION,
+    }
+
+
+def test_changed_hub_revision_blocks_resume_before_loaders(runtime):
+    run(runtime)
+    runtime.events.clear()
+    runtime.cfg = replace(runtime.cfg, model_revision="b" * 40)
+    with pytest.raises(ValueError, match="different training identity"):
+        run(runtime)
+    assert runtime.events == []
+
+
+def use_local_checkpoint(runtime):
+    checkpoint = runtime.audio.parent / "base"
+    checkpoint.mkdir()
+    for name in ("config.json", "model.safetensors", "tokenizer.json", "preprocessor_config.json"):
+        (checkpoint / name).write_bytes(b"original")
+    runtime.cfg = replace(runtime.cfg, model_id=str(checkpoint), model_revision=None)
+    return checkpoint
+
+
+def test_local_checkpoint_loads_offline_and_unchanged_resume_works(runtime):
+    checkpoint = use_local_checkpoint(runtime)
+    run(runtime)
+    loaders = [event for event in runtime.events if event[0] in {"processor", "config", "model"}]
+    assert all(event[1] == str(checkpoint.resolve()) for event in loaders)
+    assert all(event[2].get("local_files_only") is True for event in loaders)
+    assert all("revision" not in event[2] for event in loaders)
+    identity = json.loads((runtime.audio.parent / "outputs/training-inputs.json").read_text())
+    assert set(identity["base_checkpoint"]["files_sha256"]) == {
+        "config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "preprocessor_config.json",
+    }
+    run(runtime)
+
+
+@pytest.mark.parametrize("file", ["config.json", "model.safetensors", "tokenizer.json"])
+def test_changed_local_checkpoint_blocks_resume_before_loaders(runtime, file):
+    checkpoint = use_local_checkpoint(runtime)
+    run(runtime)
+    runtime.events.clear()
+    (checkpoint / file).write_bytes(b"modified")
+    with pytest.raises(ValueError, match="different training identity"):
+        run(runtime)
+    assert runtime.events == []
+
+
+def test_local_checkpoint_change_between_loaders_blocks_training(runtime, monkeypatch):
+    checkpoint = use_local_checkpoint(runtime)
+    loader = sys.modules["transformers"].WhisperConfig
+    original = loader.from_pretrained
+
+    def load_and_change(*args, **kwargs):
+        result = original(*args, **kwargs)
+        (checkpoint / "tokenizer.json").write_bytes(b"modified")
+        return result
+
+    monkeypatch.setattr(loader, "from_pretrained", load_and_change)
+    with pytest.raises(ValueError, match="changed while loading"):
+        run(runtime)
+    assert [event[0] for event in runtime.events] == ["processor", "config", "model"]
+    assert not (runtime.audio.parent / "outputs").exists()
+
+
+@pytest.mark.parametrize("kind", ["child", "equal", "case-alias"])
+def test_training_output_cannot_overwrite_local_checkpoint(runtime, kind):
+    checkpoint = use_local_checkpoint(runtime)
+    output = checkpoint / "trained"
+    if kind == "equal":
+        output = checkpoint
+    elif kind == "case-alias":
+        output = checkpoint.with_name(checkpoint.name.upper()) / "trained"
+    runtime.cfg = replace(runtime.cfg, output_dir=str(output))
+    with pytest.raises(ValueError, match="base checkpoint must be disjoint"):
+        run(runtime)
+    assert runtime.events == []
 
 
 @pytest.mark.parametrize(
@@ -332,7 +427,7 @@ def test_outputs_cannot_alias_inputs(runtime, kind):
             target.symlink_to(runtime.audio / "train.wav")
     with pytest.raises(ValueError):
         run(runtime)
-    assert runtime.events == [] and (runtime.audio / "train.wav").read_bytes() == b"fixture"
+    assert runtime.events == [] and (runtime.audio / "train.wav").read_bytes() == b"train"
 
 
 def test_label_capacity_rejects_before_model_weights(runtime, monkeypatch):
@@ -347,7 +442,9 @@ def test_masks_padding_bos_and_capacity(tmp_path, monkeypatch):
 
     (tmp_path / "a.wav").write_bytes(b"fixture")
     example = TrainExample("a.wav", "বাক্য", 3, "r", "synthetic", use_timestamps=True)
-    cfg = TrainConfig(model_id="synthetic", output_dir=str(tmp_path / "out"))
+    cfg = TrainConfig(
+        model_id="synthetic", model_revision=MODEL_REVISION, output_dir=str(tmp_path / "out")
+    )
     proc = processor()
     ds = WhisperFineTuneDataset(
         [example], proc, cfg, audio_root=tmp_path, max_target_positions=7, decoder_start_token_id=1
@@ -381,7 +478,9 @@ def test_masks_padding_bos_and_capacity(tmp_path, monkeypatch):
 )
 def test_training_config_rejects_invalid_numbers(field, value):
     with pytest.raises(ValueError):
-        TrainConfig(model_id="synthetic", output_dir="out", **{field: value})
+        TrainConfig(
+            model_id="synthetic", model_revision=MODEL_REVISION, output_dir="out", **{field: value}
+        )
 
 
 def test_selection_requires_role_license_unique_inputs(runtime):
