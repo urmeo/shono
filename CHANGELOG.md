@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Protect shared training manifests from report output collisions.
+- Pass audio attention masks to Whisper generation and default the transcription
+  CLI to CPU with int8 computation.
+- Pin Silero code and load its audio through librosa.
+- Correct training dependency ranges and check CPU training, evaluation,
+  checkpoint resume, and model export with local random weights.
+
 ## 0.1.1
 
 - Validate audio paths, time windows, training splits, and model inputs before

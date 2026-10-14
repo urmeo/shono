@@ -71,11 +71,11 @@ you plan to run; the notebooks specify version ranges.
 
 | Path | Dependencies |
 | :--- | :--- |
-| Training / Transformers inference | Transformers `>=4.46.3,<5`; PyTorch `>=2.6,<3`; accelerate; bitsandbytes for the default training optimizer; soundfile; librosa; NumPy |
+| Training / Transformers inference | Transformers `>=4.52.4,<5`; PyTorch `>=2.6,<3`; accelerate `>=1.4,<2`; bitsandbytes for the default training optimizer; soundfile; librosa; NumPy |
 | CT2 transcription | faster-whisper `>=1.2,<2`; CTranslate2 `>=4,<5`; Silero; soundfile; PyTorch; librosa; NumPy |
 | Speaker labels | pyannote.audio `>=4,<5`; access to the selected gated model |
 | Cloud | deepgram-sdk `>=7,<8` or google-cloud-speech `>=2,<3` |
-| Demo | Gradio `>=5,<6` plus the selected transcription runtime |
+| Demo | Gradio `>=5,<6`; CT2 transcription and speaker-label dependencies; `HF_TOKEN` with model access |
 
 These commands install audio metadata dependencies, generate a report, and
 inspect the transcription CLI:
@@ -92,18 +92,34 @@ and output paths for your machine. Review the `INSTALL_RUNTIME`, `RUN_MODELS`,
 and other execution flags before enabling a run. Syntax checks do not execute
 models, training, or provider calls.
 
-With the transcription runtime installed and an existing local CTranslate2
-checkpoint, transcribe a recording with:
+For CPU transcription on Linux or Apple silicon, install the runtime in the
+project environment:
 
 ```sh
-python -m shono.transcribe /path/to/recording.wav \
-  --model /path/to/ct2-checkpoint --device cpu --compute-type int8 \
-  --json outputs/transcript.json
+uv sync --locked --extra audio
+uv pip install 'torch==2.6.0' --index-url https://download.pytorch.org/whl/cpu
+uv pip install 'faster-whisper>=1.2,<2' 'librosa>=0.10,<0.12'
 ```
 
-The checkpoint must contain model, tokenizer, and preprocessing files. Use
-`python -m shono.transcribe.convert --help` for local checkpoint conversion.
-Silero weights may download on first use. Runtime performance remains unmeasured.
+Use the environment's Python for model commands. `uv sync` and `./verify` restore
+the core environment, so repeat the runtime install after running them.
+
+With an existing local CTranslate2 checkpoint, transcribe a recording with:
+
+```sh
+.venv/bin/python -m shono.transcribe /path/to/recording.wav \
+  --model /path/to/ct2-checkpoint --json outputs/transcript.json
+```
+
+The CLI defaults to CPU and int8. For a configured CUDA environment, pass
+`--device cuda --compute-type float16`. The checkpoint must contain model,
+tokenizer, and preprocessing files. Conversion from a local Transformers
+checkpoint also requires Transformers `>=4.52.4,<5`; inspect its options with
+`.venv/bin/python -m shono.transcribe.convert --help`.
+
+On a cold cache, Silero code and weights download on first use. The adapter pins
+[Silero commit `1e261b0`](https://github.com/snakers4/silero-vad/commit/1e261b036686cd0017d500ee96acd1c4ba572a9d)
+and decodes audio with librosa. Runtime performance remains unmeasured.
 
 ## Execution boundaries
 
@@ -142,11 +158,12 @@ upstream model was trained on the evaluation data.
 Report definitions are in [`configs/reports/`](../configs/reports/). Predictions
 and reports go to `outputs/`; checkpoints stay outside Git. Resume selects the
 latest checkpoint with valid saved-step metadata. Weight and optimizer
-completeness are checked by the training runtime. Recovery after interruption
-and training convergence still require validation in a real run.
+completeness are checked by the training runtime. The CPU integration check
+covers checkpoint resume with local random weights. Recovery during GPU
+training and convergence still require validation.
 
 ## Primary references
 
 [Whisper paper](https://arxiv.org/abs/2212.04356) · [Loop format and protocol](https://arxiv.org/html/2602.14291v1) · [SLR53](https://www.openslr.org/53/) · [MUCS](https://www.openslr.org/104/)
 
-[Pyannote output contract](https://huggingface.co/pyannote/speaker-diarization-community-1) · [Deepgram 7 migration](https://raw.githubusercontent.com/deepgram/deepgram-python-sdk/main/docs/Migrating-v6-to-v7.md) · [Google input limits](https://docs.cloud.google.com/speech-to-text/docs/quotas) · [Transformers 4.46.3](https://huggingface.co/docs/transformers/v4.46.3/en/main_classes/trainer)
+[Pyannote output contract](https://huggingface.co/pyannote/speaker-diarization-community-1) · [Deepgram 7 migration](https://raw.githubusercontent.com/deepgram/deepgram-python-sdk/main/docs/Migrating-v6-to-v7.md) · [Google input limits](https://docs.cloud.google.com/speech-to-text/docs/quotas) · [Transformers 4.52.4](https://huggingface.co/docs/transformers/v4.52.4/en/main_classes/trainer)

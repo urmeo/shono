@@ -31,7 +31,7 @@
       "hours": 215.0,
       "domain": "read",
       "version": "SLR53",
-      "notes": "Official SLR53 release: CC-BY-SA-4.0; approximately196k utterances. Recorded hours are a source estimate.",
+      "notes": "Official SLR53 release: CC-BY-SA-4.0; approximately 196k utterances. Recorded hours are a source estimate.",
       "confidence": "H"
     },
     {
@@ -47,7 +47,7 @@
       "hours": 158.6,
       "domain": "long-form",
       "version": "arXiv 2602.14291 (Feb 2026)",
-      "notes": "The cited paper is CC-BY-4.0; it does not establish a dataset grant. Its release section limits media redistribution. 191 ASR recordings/158.6 h and24 diarization recordings/22 h are source corpus counts, not Shono results. Excluded until release terms are recorded.",
+      "notes": "The cited paper is CC-BY-4.0; it does not establish a dataset grant. Its release section limits media redistribution. 191 ASR recordings/158.6 h and 24 diarization recordings/22 h are source corpus counts, not Shono results. Excluded until release terms are recorded.",
       "confidence": "M"
     },
     {
