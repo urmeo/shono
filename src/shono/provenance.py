@@ -40,7 +40,7 @@ class GitState:
     """The commit a run was launched from, and whether the tree was dirty."""
 
     sha: str | None
-    dirty: bool
+    dirty: bool | None
 
 
 def _read_git_state(repo: Path) -> GitState:
@@ -59,7 +59,7 @@ def _read_git_state(repo: Path) -> GitState:
 
     sha = _run("rev-parse", "HEAD")
     status = _run("status", "--porcelain")
-    return GitState(sha=sha, dirty=bool(status))
+    return GitState(sha=sha, dirty=None if status is None else bool(status))
 
 
 def _package_versions(names: tuple[str, ...]) -> dict[str, str]:

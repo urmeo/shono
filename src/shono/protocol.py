@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from shono.data.license import LicenseRegistry
-from shono.data.manifest import Manifest
 from shono.output_paths import source_files, validate_output_destinations
 from shono.provenance import RunContext, safe_metadata, validate_seed
 
@@ -209,6 +208,7 @@ def execute_matrix(
     """Preflight all enabled inputs and provider totals before creating adapters."""
     from shono.api import BudgetGuard, preflight_manifest, run_over_manifest
     from shono.data.audio_paths import validate_audio_window
+    from shono.eval.report import _load_manifest
 
     validate_seed(seed)
     if any(not isinstance(flag, bool) for flag in (run_models, run_apis, allow_paid)):
@@ -259,7 +259,7 @@ def execute_matrix(
         if not path.is_file():
             pending[entry] = "manifest unavailable"
             continue
-        manifest = Manifest.from_jsonl(path)
+        manifest, manifest_sha256 = _load_manifest(path)
         license = registry.require(manifest.source)
         if license.status == "excluded":
             pending[entry] = "source permission unconfirmed or excluded"
@@ -286,16 +286,19 @@ def execute_matrix(
         protected.append(path)
         if entry.provider != "local":
             totals[entry.provider] += hours
-        planned.append((entry, manifest))
+        planned.append((entry, manifest, manifest_sha256))
     validate_output_destinations(
-        (base / entry.predictions for entry, _ in planned),
+        (base / entry.predictions for entry, _, _ in planned),
         protected_paths=protected,
         output_root=base / "outputs",
     )
     for provider, hours in totals.items():
         budgets[provider].check(hours)
+    for entry, _manifest, digest in planned:
+        if hashlib.sha256((base / entry.manifest).read_bytes()).hexdigest() != digest:
+            raise ValueError(f"manifest changed during preflight: {entry.manifest}")
     completed = set()
-    for entry, manifest in planned:
+    for entry, manifest, manifest_sha256 in planned:
         configured = settings.get(
             f"{entry.slug}:{entry.inference_mode}", settings.get(entry.slug, {})
         )
@@ -304,7 +307,7 @@ def execute_matrix(
             {
                 **configured,
                 "model_id": entry.model_id,
-                "model_revision": "unknown",
+                "model_revision": configured.get("model_revision", "unknown"),
                 "provider": entry.provider,
                 "inference_mode": entry.inference_mode,
                 "language": configured.get("language", "bn"),
@@ -312,9 +315,7 @@ def execute_matrix(
             },
             command="execute_matrix",
             repo=base,
-            extra={
-                "manifest_sha256": hashlib.sha256((base / entry.manifest).read_bytes()).hexdigest()
-            },
+            extra={"manifest_sha256": manifest_sha256},
         )
         predictions = run_over_manifest(
             transcriber_for(entry),
@@ -325,6 +326,8 @@ def execute_matrix(
             duration_of=duration_of,
             run_context=context,
         )
+        if hashlib.sha256((base / entry.manifest).read_bytes()).hexdigest() != manifest_sha256:
+            raise ValueError(f"manifest changed during inference: {entry.manifest}")
         destination = base / entry.predictions
         destination.parent.mkdir(parents=True, exist_ok=True)
         predictions.to_jsonl(destination, protected_paths=protected)
