@@ -4,6 +4,7 @@ import json
 import math
 import shutil
 import wave
+from dataclasses import replace
 
 import pytest
 from data_fixtures import synthetic_registry
@@ -128,6 +129,7 @@ def test_real_cpu_training_exports_evaluates_and_resumes(tmp_path, monkeypatch):
         chunk_length_s=1,
         min_chunk_length_s=0.1,
         timestamp_sample_fraction=0,
+        resume=False,
     )
     training_arguments = training.to_training_arguments
     monkeypatch.setattr(
@@ -162,6 +164,7 @@ def test_real_cpu_training_exports_evaluates_and_resumes(tmp_path, monkeypatch):
             assert json.loads(state_path.read_text(encoding="utf-8"))["global_step"] == 2
             if iteration == 0:
                 shutil.rmtree(state_path.parent)
+                settings = replace(settings, resume=True)
     finally:
         torch.set_num_threads(original_threads)
     assert completed_runs == [(None, 2), (str(tmp_path / "trained" / "checkpoint-1"), 2)]

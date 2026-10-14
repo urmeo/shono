@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
@@ -181,6 +182,21 @@ def test_build_examples_filters_by_duration():
     )
     kept = sorted(e.duration_s for e in examples)
     assert kept == [2.0, 30.0]
+
+
+def test_build_examples_preserves_scorable_original_target():
+    manifest = _manifest("m", "train", [2.0])
+    original = "হ্যাঁ... ১২!"
+    manifest = replace(manifest, segments=(replace(manifest.segments[0], text=original),))
+    examples = build_examples(
+        [manifest],
+        chunk_length_s=30.0,
+        min_chunk_length_s=1.0,
+        timestamp_sample_fraction=0.0,
+        seed=0,
+        registry=synthetic_registry("openslr_slr53"),
+    )
+    assert examples[0].text == original
 
 
 def test_build_examples_refuses_test_split():

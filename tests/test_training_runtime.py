@@ -408,6 +408,81 @@ def test_compatible_resume_passes_saved_step(runtime):
     assert ("train", {"resume_from_checkpoint": str(checkpoint)}) in runtime.events
 
 
+@pytest.mark.parametrize("legacy_identity", [False, True])
+def test_enabling_resume_preserves_training_identity(runtime, legacy_identity):
+    runtime.cfg = replace(runtime.cfg, resume=False)
+    run(runtime)
+    out = runtime.audio.parent / "outputs"
+    identity_path = out / "training-inputs.json"
+    if legacy_identity:
+        identity = json.loads(identity_path.read_text())
+        identity["config"]["resume"] = False
+        identity_path.write_text(json.dumps(identity))
+    checkpoint = out / "checkpoint-5"
+    checkpoint.mkdir()
+    (checkpoint / "trainer_state.json").write_text('{"global_step":5}')
+    runtime.cfg = replace(runtime.cfg, resume=True)
+    runtime.events.clear()
+
+    run(runtime)
+
+    assert ("train", {"resume_from_checkpoint": str(checkpoint)}) in runtime.events
+    assert "resume" not in json.loads(identity_path.read_text())["config"]
+
+
+@pytest.mark.parametrize("change", ["config", "manifest", "checkpoint"])
+@pytest.mark.parametrize("resume", [False, True])
+def test_legacy_resume_record_still_requires_matching_training_inputs(runtime, change, resume):
+    runtime.cfg = replace(runtime.cfg, resume=False)
+    run(runtime)
+    identity_path = runtime.audio.parent / "outputs/training-inputs.json"
+    identity = json.loads(identity_path.read_text())
+    identity["config"]["resume"] = False
+    identity_path.write_text(json.dumps(identity))
+    runtime.cfg = replace(runtime.cfg, resume=resume)
+    if change == "config":
+        runtime.cfg = replace(runtime.cfg, learning_rate=2e-5)
+    elif change == "manifest":
+        runtime.dev = replace(
+            runtime.dev, segments=(replace(runtime.dev.segments[0], text="changed reference"),)
+        )
+    else:
+        runtime.cfg = replace(runtime.cfg, model_revision="b" * 40)
+    runtime.events.clear()
+
+    with pytest.raises(ValueError, match="different training identity"):
+        run(runtime)
+
+    assert runtime.events == []
+
+
+def test_disabling_resume_starts_fresh_with_matching_training_inputs(runtime):
+    run(runtime)
+    checkpoint = runtime.audio.parent / "outputs/checkpoint-5"
+    checkpoint.mkdir()
+    (checkpoint / "trainer_state.json").write_text('{"global_step":5}')
+    runtime.cfg = replace(runtime.cfg, resume=False)
+    runtime.events.clear()
+
+    run(runtime)
+
+    assert ("train", {"resume_from_checkpoint": None}) in runtime.events
+
+
+@pytest.mark.parametrize("role", ["train", "dev"])
+@pytest.mark.parametrize("target", ["...", "।!?+", "\u200b\u200c\u200d\ufeff"])
+def test_unscorable_targets_fail_before_model_loading(runtime, role, target):
+    manifest = getattr(runtime, role)
+    setattr(
+        runtime, role, replace(manifest, segments=(replace(manifest.segments[0], text=target),))
+    )
+
+    with pytest.raises(ValueError, match="empty after evaluation normalization"):
+        run(runtime)
+
+    assert runtime.events == []
+
+
 @pytest.mark.parametrize("kind", ["inside", "ancestor", "hardlink", "symlink", "cycle"])
 def test_outputs_cannot_alias_inputs(runtime, kind):
     out = runtime.audio.parent / "outputs"

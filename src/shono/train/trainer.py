@@ -162,10 +162,12 @@ def run_training(
         model_id = config.model_id
         load_options = {"revision": config.model_revision}
     resume = decide_resume(out, enabled=config.resume)
+    training_config = config.to_dict()
+    del training_config["resume"]
     identity = json.loads(
         json.dumps(
             {
-                "config": config.to_dict(),
+                "config": training_config,
                 "base_checkpoint": base_checkpoint,
                 "manifests": [asdict(m) for m in all_manifests],
                 "leakage": [asdict(report) for report in audits],
@@ -176,11 +178,13 @@ def run_training(
     identity_path = out / "training-inputs.json"
     if not resolved_path(identity_path).is_relative_to(out):
         raise ValueError("training identity path escapes output_dir")
-    if config.resume and identity_path.exists():
+    if identity_path.exists():
         try:
             prior = json.loads(identity_path.read_text(encoding="utf-8"))
         except (ValueError, OSError) as exc:
             raise ValueError("cannot read prior training identity") from exc
+        if isinstance(prior, dict) and isinstance(prior.get("config"), dict):
+            prior["config"].pop("resume", None)
         if prior != identity:
             raise ValueError(
                 "output_dir contains a different training identity; choose a new output"

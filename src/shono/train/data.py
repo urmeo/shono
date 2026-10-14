@@ -10,6 +10,7 @@ from dataclasses import dataclass, replace
 from shono.data.license import LicenseRegistry
 from shono.data.manifest import Manifest, Segment
 from shono.data.validation import real_number, text_value
+from shono.eval.normalize import NORMALIZER_VERSION, normalize
 
 
 @dataclass(frozen=True)
@@ -89,6 +90,11 @@ def build_examples(
     for m in manifests:
         for seg in m.segments:
             if min_chunk_length_s <= seg.duration_s <= chunk_length_s:
+                if not normalize(seg.text):
+                    raise ValueError(
+                        f"manifest {m.name!r}, segment {seg.id!r}: target is empty after "
+                        f"evaluation normalization v{NORMALIZER_VERSION}"
+                    )
                 kept.append(
                     TrainExample(
                         audio=seg.audio,
