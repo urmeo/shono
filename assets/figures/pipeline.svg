@@ -1,82 +1,135 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="940" viewBox="0 0 1280 940" fill="none" role="img" aria-labelledby="pipeline-title pipeline-description">
-<title id="pipeline-title">Shono pipeline: audio to transcripts and evaluation reports</title>
-<desc id="pipeline-description">The main path is Bengali audio, Whisper transcription, a transcript, and evaluation reports. Preparation validates local audio, timing and source terms, separates train, development and held-out test manifests, and checks overlap. Optional fine-tuning learns from the training split and evaluates on the development split; an existing Whisper checkpoint can be used directly. Short clips use Transformers. Long recordings use Silero speech detection, chunks no longer than 30 seconds including padding, faster-whisper with converted CTranslate2 weights, confidence filtering and timestamp merging. Text is retained when word timings are unavailable. In the long-form path, optional pyannote speaker turns are clipped to detected speech and combined with transcript timing to label each segment by its dominant speaker. Held-out reference text enters scoring only. Evaluation uses raw and normalized word and character error rates; optional API predictions can be compared on the same supported audio windows. The project has no trained checkpoint or measured model accuracy; word alignment is unverified.</desc>
-<rect width="1280" height="940" fill="#14191C"/>
-<defs>
-<marker id="flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 9 5 1 9Z" fill="#67CDE5"/></marker>
-<marker id="optional-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 9 5 1 9Z" fill="#F4A18F"/></marker>
-<marker id="reference-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 9 5 1 9Z" fill="#B7C3CA"/></marker>
-</defs>
-<g font-family="Inter, Arial, sans-serif">
-<text x="48" y="62" font-size="36" font-weight="600" fill="#EDF2F4">Shono pipeline</text>
-<text x="1232" y="61" font-size="21" font-weight="400" fill="#F4A18F" text-anchor="end">Dashed paths are optional</text>
-<path d="M172 156V110H1108V372" stroke="#B7C3CA" stroke-width="2.3" stroke-linejoin="round" marker-end="url(#reference-arrow)"/>
-<text x="885" y="100" font-size="21" font-weight="400" fill="#B7C3CA">held-out references</text>
-<path d="M298 232H384" stroke="#F4A18F" stroke-width="2.3" stroke-linejoin="round" marker-end="url(#optional-arrow)" stroke-dasharray="7 6"/>
-<text x="341" y="216" font-size="18" font-weight="400" fill="#F4A18F" text-anchor="middle">train / dev</text>
-<path d="M660 308V342H484V372" stroke="#67CDE5" stroke-width="2.3" stroke-linejoin="round" marker-end="url(#flow-arrow)"/>
-<text x="678" y="338" font-size="20" font-weight="400" fill="#67CDE5">model weights</text>
-<path d="M298 475H336" stroke="#67CDE5" stroke-width="2.3" stroke-linejoin="round" marker-end="url(#flow-arrow)"/>
-<path d="M626 475H672" stroke="#67CDE5" stroke-width="2.3" stroke-linejoin="round" marker-end="url(#flow-arrow)"/>
-<path d="M930 475H976" stroke="#67CDE5" stroke-width="2.3" stroke-linejoin="round" marker-end="url(#flow-arrow)"/>
-<path d="M484 580V642" stroke="#F4A18F" stroke-width="2.3" stroke-linejoin="round" marker-end="url(#optional-arrow)" stroke-dasharray="7 6"/>
-<text x="506" y="615" font-size="20" font-weight="400" fill="#F4A18F">long path: audio + speech</text>
-<path d="M626 720H804V588" stroke="#F4A18F" stroke-width="2.3" stroke-linejoin="round" marker-end="url(#optional-arrow)" stroke-dasharray="7 6"/>
-<text x="822" y="637" font-size="20" font-weight="400" fill="#F4A18F">speaker turns</text>
-<path d="M1108 650V588" stroke="#F4A18F" stroke-width="2.3" stroke-linejoin="round" marker-end="url(#optional-arrow)" stroke-dasharray="7 6"/>
-<g id="prepared-data">
-<rect x="48" y="156" width="248" height="152" rx="10" fill="#1B2327" stroke="#6C7E88" stroke-width="2"/>
-<text x="70" y="198" font-size="27" font-weight="600" fill="#EDF2F4">Prepare data</text>
-<text x="70" y="238" font-size="21" font-weight="400" fill="#B7C3CA">Validate audio + terms</text>
-<text x="70" y="267" font-size="22" font-weight="400" fill="#B7C3CA">Train / dev / test</text>
-</g>
-<g id="model">
-<rect x="392" y="156" width="536" height="152" rx="10" fill="#1B2327" stroke="#67CDE5" stroke-width="2"/>
-<text x="414" y="198" font-size="28" font-weight="600" fill="#EDF2F4">Whisper model</text>
-<text x="414" y="238" font-size="24" font-weight="400" fill="#B7C3CA">Existing weights or optional fine-tune</text>
-<text x="414" y="267" font-size="22" font-weight="400" fill="#B7C3CA">Train on train; validate on dev</text>
-</g>
-<g id="audio">
-<rect x="48" y="380" width="248" height="200" rx="10" fill="#1B2327" stroke="#6C7E88" stroke-width="2"/>
-<text x="70" y="422" font-size="27" font-weight="600" fill="#EDF2F4">Bengali audio</text>
-<text x="70" y="462" font-size="22" font-weight="400" fill="#B7C3CA">Clip or recording</text>
-</g>
-<g id="transcription">
-<rect x="344" y="380" width="280" height="200" rx="10" fill="#1B2327" stroke="#67CDE5" stroke-width="2"/>
-<text x="366" y="422" font-size="28" font-weight="600" fill="#EDF2F4">Transcribe</text>
-<text x="366" y="462" font-size="22" font-weight="400" fill="#B7C3CA">Clips: Transformers</text>
-<text x="366" y="491" font-size="21" font-weight="400" fill="#B7C3CA">Long: speech → chunks</text>
-<text x="366" y="520" font-size="21" font-weight="400" fill="#67CDE5">Whisper → filter → merge</text>
-<text x="366" y="549" font-size="20" font-weight="400" fill="#B7C3CA">≤30 s including padding</text>
-</g>
-<g id="transcript">
-<rect x="680" y="380" width="248" height="200" rx="10" fill="#1B2327" stroke="#67CDE5" stroke-width="2"/>
-<text x="702" y="422" font-size="28" font-weight="600" fill="#EDF2F4">Transcript</text>
-<text x="702" y="462" font-size="22" font-weight="400" fill="#B7C3CA">Recognized text</text>
-<text x="702" y="491" font-size="22" font-weight="400" fill="#B7C3CA">Timing, if available</text>
-<text x="702" y="520" font-size="22" font-weight="400" fill="#F4A18F">Optional labels</text>
-</g>
-<g id="evaluation">
-<rect x="984" y="380" width="248" height="200" rx="10" fill="#1B2327" stroke="#67CDE5" stroke-width="2"/>
-<text x="1006" y="422" font-size="26" font-weight="600" fill="#EDF2F4">Score + report</text>
-<text x="1006" y="462" font-size="24" font-weight="400" fill="#67CDE5">WER / CER</text>
-<text x="1006" y="491" font-size="22" font-weight="400" fill="#B7C3CA">Raw + normalized</text>
-<text x="1006" y="520" font-size="22" font-weight="400" fill="#B7C3CA">JSON + Markdown</text>
-</g>
-<g id="speaker-turns">
-<rect x="344" y="650" width="280" height="140" rx="10" fill="#1B2327" stroke="#F4A18F" stroke-width="2" stroke-dasharray="7 6"/>
-<text x="366" y="692" font-size="26" font-weight="600" fill="#EDF2F4">Speaker turns</text>
-<text x="366" y="732" font-size="22" font-weight="400" fill="#F4A18F">pyannote · optional</text>
-<text x="366" y="761" font-size="20" font-weight="400" fill="#B7C3CA">Clip to detected speech</text>
-</g>
-<g id="api-predictions">
-<rect x="984" y="650" width="248" height="140" rx="10" fill="#1B2327" stroke="#F4A18F" stroke-width="2" stroke-dasharray="7 6"/>
-<text x="1006" y="692" font-size="25" font-weight="600" fill="#EDF2F4">API predictions</text>
-<text x="1006" y="732" font-size="21" font-weight="400" fill="#F4A18F">Optional comparison</text>
-<text x="1006" y="761" font-size="22" font-weight="400" fill="#B7C3CA">Same test audio</text>
-</g>
-<text x="48" y="834" font-size="22" font-weight="400" fill="#B7C3CA">WER / CER measure word and character errors.</text>
-<text x="48" y="870" font-size="22" font-weight="400" fill="#B7C3CA">Labels show each segment’s dominant speaker; word alignment is unverified.</text>
-<text x="48" y="919" font-size="21" font-weight="400" fill="#B7C3CA">Prototype · no project-trained checkpoint or measured model accuracy.</text>
-</g>
+<svg width="1600" height="1320" viewBox="0 0 1600 1320" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="pipeline-title pipeline-description">
+<title id="pipeline-title">Shono project pipeline</title>
+<desc id="pipeline-description">Validate audio and declared dataset splits. Use an existing Whisper checkpoint or optionally fine-tune with PyTorch and Transformers. Transcribe short clips with Transformers, or long recordings with Silero, CTranslate2 Whisper, per-segment checks, and timing merge. Compare text against held-out references with raw and normalized WER and CER. Optional provider predictions use the same scoring path. Optional pyannote turns label transcript segments and are scored separately against CSV or RTTM speaker references. Export scores and reports. Whisper windows include padding within 30 seconds. Confidence intervals need at least two recording or speaker blocks. This prototype has no project-trained checkpoint or measured model accuracy; word alignment is unverified.</desc>
+<rect width="1600" height="1320" fill="#14191C"/>
+<rect x="14.75" y="112.75" width="1570.5" height="1096.5" rx="7.25" fill="#1B2226" stroke="#303A3F" stroke-width="1.5"/>
+<text fill="#DCE4E8" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="600" letter-spacing="0em"><tspan x="20" y="54.8636">SHONO / SIGNAL FLOW</tspan></text>
+<rect x="20" y="86" width="1560" height="1.5" fill="#83939B"/>
+<path d="M1010 48H1042" stroke="#49B7D3" stroke-width="2.2"/>
+<text fill="#DCE4E8" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="1053" y="53.5455">Main flow</tspan></text>
+<path d="M1190 48H1222" stroke="#E38A78" stroke-width="2.2" stroke-dasharray="8 7"/>
+<text fill="#DCE4E8" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="1233" y="53.5455">Optional</tspan></text>
+<path d="M1370 48H1402" stroke="#83939B" stroke-width="2.2"/>
+<text fill="#DCE4E8" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="1413" y="53.5455">References</tspan></text>
+<rect x="51" y="161" width="318" height="178" rx="7" fill="#1B2226"/>
+<rect x="51" y="161" width="318" height="178" rx="7" stroke="#C4CDD2" stroke-width="2"/>
+<text fill="#DCE4E8" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="0em"><tspan x="72" y="207.182">Prepare inputs</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="72" y="248.5">Local audio + manifests</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="72" y="279.5">Terms &#xb7; timing &#xb7; overlap</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="72" y="310.5">Train / dev / held-out</tspan></text>
+<rect x="491" y="161" width="388" height="178" rx="7" fill="#1B2226"/>
+<rect x="491" y="161" width="388" height="178" rx="7" stroke="#E38A78" stroke-width="2" stroke-dasharray="8 7"/>
+<text fill="#DCE4E8" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="0em"><tspan x="512" y="207.182">Fine-tune &#xb7; optional</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="512" y="248.5">PyTorch + Transformers</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="512" y="279.5">Train &#x2192; learn &#xb7; dev &#x2192; validate</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="512" y="310.5">Keep held-out data separate</tspan></text>
+<rect x="1011" y="161" width="538" height="178" rx="7" fill="#1B2226"/>
+<rect x="1011" y="161" width="538" height="178" rx="7" stroke="#C4CDD2" stroke-width="2"/>
+<text fill="#DCE4E8" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="0em"><tspan x="1032" y="207.182">Whisper checkpoint</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="1032" y="248.5">Use existing Whisper weights</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="1032" y="279.5">or a saved fine-tune</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="1032" y="310.5">Pinned Hub / hashed local files</tspan></text>
+<rect x="51" y="561" width="248" height="178" rx="7" fill="#1B2226"/>
+<rect x="51" y="561" width="248" height="178" rx="7" stroke="#C4CDD2" stroke-width="2"/>
+<text fill="#DCE4E8" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="0em"><tspan x="72" y="607.182">Audio</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="72" y="648.5">Clip or recording</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="72" y="679.5">Validated input</tspan></text>
+<rect x="371" y="471" width="458" height="338" rx="7" fill="#1B2226"/>
+<rect x="371" y="471" width="458" height="338" rx="7" stroke="#49B7D3" stroke-width="2"/>
+<text fill="#DCE4E8" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="0em"><tspan x="392" y="517.182">Transcribe</tspan></text>
+<text fill="#49B7D3" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="20" letter-spacing="0em" font-weight="400"><tspan x="392" y="568.5">CLIPS &#x2264;30 s</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="392" y="601.5">Transformers &#x2192; text</tspan></text>
+<rect x="392" y="621" width="416" height="1" fill="#303A3F"/>
+<text fill="#49B7D3" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="20" letter-spacing="0em" font-weight="400"><tspan x="392" y="664.5">LONG RECORDINGS</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="392" y="697.5">Silero &#x2192; &#x2264;30 s windows</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="392" y="729.5">CT2 Whisper &#x2192; segment checks</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="392" y="761.5">Merge accepted text + timings</tspan></text>
+<rect x="901" y="551" width="258" height="198" rx="7" fill="#1B2226"/>
+<rect x="901" y="551" width="258" height="198" rx="7" stroke="#49B7D3" stroke-width="2"/>
+<text fill="#DCE4E8" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="0em"><tspan x="922" y="597.182">Transcript</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="922" y="638.5">Recognized text</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="922" y="669.5">Long path:</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="922" y="700.5">word / coarse timing</tspan></text>
+<rect x="1231" y="501" width="318" height="298" rx="7" fill="#1B2226"/>
+<rect x="1231" y="501" width="318" height="298" rx="7" stroke="#49B7D3" stroke-width="2"/>
+<text fill="#DCE4E8" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="0em"><tspan x="1252" y="547.182">Score</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="1252" y="588.5">References + predictions</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="1252" y="619.5">Same policy for both</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="1252" y="650.5">WER / CER</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="1252" y="681.5">Raw + normalized</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="1252" y="712.5">Confidence intervals*</tspan></text>
+<rect x="1231" y="931" width="318" height="208" rx="7" fill="#1B2226"/>
+<rect x="1231" y="931" width="318" height="208" rx="7" stroke="#49B7D3" stroke-width="2"/>
+<text fill="#DCE4E8" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="0em"><tspan x="1252" y="977.182">Reports</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="1252" y="1018.5">Scores: JSON + Markdown</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="1252" y="1049.5">Model card + metadata</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="1252" y="1080.5">DER: Markdown (optional)</tspan></text>
+<rect x="51" y="931" width="248" height="208" rx="7" fill="#1B2226"/>
+<rect x="51" y="931" width="248" height="208" rx="7" stroke="#E38A78" stroke-width="2" stroke-dasharray="8 7"/>
+<text fill="#DCE4E8" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="0em"><tspan x="72" y="977.182">Provider APIs</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="72" y="1018.5">Budget first</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="72" y="1049.5">Google / Deepgram</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="72" y="1080.5">Supported windows</tspan></text>
+<rect x="371" y="931" width="458" height="208" rx="7" fill="#1B2226"/>
+<rect x="371" y="931" width="458" height="208" rx="7" stroke="#E38A78" stroke-width="2" stroke-dasharray="8 7"/>
+<text fill="#DCE4E8" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="0em"><tspan x="392" y="977.182">Speaker labels</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="392" y="1018.5">pyannote &#x2192; speaker turns</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="392" y="1049.5">Clip to detected speech</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="392" y="1080.5">Dominant label per segment</tspan></text>
+<rect x="901" y="931" width="258" height="208" rx="7" fill="#1B2226"/>
+<rect x="901" y="931" width="258" height="208" rx="7" stroke="#E38A78" stroke-width="2" stroke-dasharray="8 7"/>
+<text fill="#DCE4E8" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="0em"><tspan x="922" y="977.182">Speaker DER</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="922" y="1018.5">Refs + speaker turns</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="922" y="1049.5">0.25 s collar</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" letter-spacing="0em" font-weight="400"><tspan x="922" y="1080.5">Overlap included</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" letter-spacing="0em" font-weight="400"><tspan x="20" y="1249.27">Whisper windows are &#x2264;30 s including padding. *Intervals need &#x2265;2 recording/speaker blocks.</tspan></text>
+<text fill="#99A8B0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" letter-spacing="0em" font-weight="400"><tspan x="20" y="1284.27">Prototype &#xb7; no project-trained checkpoint or measured model accuracy. Word alignment is unverified.</tspan></text>
+<path d="M370 250H490" stroke="#E38A78" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="8 7"/>
+<path d="M490 250L475 256.5V243.5L490 250Z" fill="#E38A78"/>
+<text fill="#E38A78" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="376" y="236.25">train + dev</tspan></text>
+<path d="M880 250H1010" stroke="#E38A78" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="8 7"/>
+<path d="M1010 250L995 256.5V243.5L1010 250Z" fill="#E38A78"/>
+<text fill="#E38A78" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="905" y="236.25">weights</tspan></text>
+<path d="M210 340V560" stroke="#49B7D3" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M210 560L203.5 545H216.5L210 560Z" fill="#49B7D3"/>
+<text fill="#49B7D3" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="224" y="451.25">audio</tspan></text>
+<path d="M1280 340V410H600V470" stroke="#49B7D3" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M600 470L593.5 455H606.5L600 470Z" fill="#49B7D3"/>
+<text fill="#49B7D3" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="825" y="394.25">verify &#xb7; convert for CT2</tspan></text>
+<path d="M370 195H420V140H1570V650H1550" stroke="#83939B" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M1550 650L1565 643.5V656.5L1550 650Z" fill="#83939B"/>
+<text fill="#83939B" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="1290" y="132.25">held-out text</tspan></text>
+<path d="M300 650H370" stroke="#49B7D3" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M370 650L355 656.5V643.5L370 650Z" fill="#49B7D3"/>
+<text fill="#49B7D3" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="307" y="635.25">audio</tspan></text>
+<path d="M830 650H900" stroke="#49B7D3" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M900 650L885 656.5V643.5L900 650Z" fill="#49B7D3"/>
+<text fill="#49B7D3" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="844" y="635.25">text</tspan></text>
+<path d="M1160 650H1230" stroke="#49B7D3" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M1230 650L1215 656.5V643.5L1230 650Z" fill="#49B7D3"/>
+<text fill="#49B7D3" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="1174" y="635.25">text</tspan></text>
+<path d="M1390 800V930" stroke="#49B7D3" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M1390 930L1383.5 915H1396.5L1390 930Z" fill="#49B7D3"/>
+<text fill="#49B7D3" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="1404" y="870.25">scores</tspan></text>
+<path d="M175 740V930" stroke="#E38A78" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="8 7"/>
+<path d="M175 930L168.5 915H181.5L175 930Z" fill="#E38A78"/>
+<text fill="#E38A78" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="190" y="862.25">audio</tspan></text>
+<path d="M600 810V930" stroke="#E38A78" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="8 7"/>
+<path d="M600 930L593.5 915H606.5L600 930Z" fill="#E38A78"/>
+<text fill="#E38A78" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="614" y="876.25">long audio + speech</tspan></text>
+<path d="M830 980H865V850H1030V750" stroke="#E38A78" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="8 7"/>
+<path d="M1030 750L1036.5 765H1023.5L1030 750Z" fill="#E38A78"/>
+<text fill="#E38A78" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="884" y="838.25">labels</tspan></text>
+<path d="M830 1040H900" stroke="#E38A78" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="8 7"/>
+<path d="M900 1040L885 1046.5V1033.5L900 1040Z" fill="#E38A78"/>
+<text fill="#E38A78" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="838" y="1027.25">turns</tspan></text>
+<path d="M1030 895V930" stroke="#83939B" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M1030 930L1023.5 915H1036.5L1030 930Z" fill="#83939B"/>
+<text fill="#83939B" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="913" y="888.25">CSV / RTTM references</tspan></text>
+<path d="M1160 1040H1230" stroke="#E38A78" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="8 7"/>
+<path d="M1230 1040L1215 1046.5V1033.5L1230 1040Z" fill="#E38A78"/>
+<text fill="#E38A78" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="1175" y="1027.25">DER</tspan></text>
+<path d="M175 1140V1190H1570V745H1550" stroke="#E38A78" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="8 7"/>
+<path d="M1550 745L1565 738.5V751.5L1550 745Z" fill="#E38A78"/>
+<text fill="#E38A78" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, SFMono-Regular, Consolas, monospace" font-size="18" letter-spacing="0em" font-weight="400"><tspan x="575" y="1175.25">provider predictions &#x2192; same scoring</tspan></text>
 </svg>
