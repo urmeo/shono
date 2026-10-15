@@ -5,7 +5,10 @@ transcripts with jiwer and bnunicodenormalizer, prepares dataset manifests, and
 provides optional Whisper training and transcription workflows using PyTorch
 and Transformers.
 
-![Shono pipeline: audio to transcript to evaluation report, with optional fine-tuning, speaker labels, and API comparisons.](assets/figures/pipeline.svg)
+![Shono pipeline: prepare audio and manifests, choose Whisper weights, transcribe, score against references, and export reports. Fine-tuning, provider comparisons, speaker labels, and diarization scoring are optional.](assets/figures/pipeline.svg)
+
+[Full-size pipeline](assets/figures/pipeline.svg) ·
+[Edit in Figma](https://www.figma.com/design/i0LzWN7LrsGqt5LQG3Ostu?node-id=2-2)
 
 This is a prototype. The repository has no project-trained checkpoint or
 measured model accuracy. GPU training, live provider calls, and the gated
