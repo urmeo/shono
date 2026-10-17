@@ -77,7 +77,7 @@ def validate_audio_window(
     if not path.is_file():
         raise ValueError(f"missing audio file: {path}")
     tolerance = real_number(tolerance_s, "tolerance_s")
-    if tolerance < 0 or tolerance > 0.01:
+    if not 0 <= tolerance <= 0.01:
         raise ValueError("tolerance_s must be between 0 and 0.01 seconds")
     if whole_file is not None and type(whole_file) is not bool:
         raise ValueError("whole_file must be a boolean or None")

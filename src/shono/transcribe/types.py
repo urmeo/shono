@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from shono.transcribe._validation import finite_real, probability, time_bounds
 
@@ -83,7 +83,7 @@ class TranscriptSegment:
 
 @dataclass(frozen=True)
 class Transcript:
-    segments: tuple[TranscriptSegment, ...] = field(default_factory=tuple)
+    segments: tuple[TranscriptSegment, ...] = ()
     warnings: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:

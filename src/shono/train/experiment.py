@@ -23,11 +23,10 @@ def render_experiment(
     baseline: Mapping[str, float] | None = None,
 ) -> str:
     """Render measured metrics, or a pending record when metrics is None."""
-    rc = run_context
     tree = ""
-    if rc.git.dirty is None:
+    if run_context.git.dirty is None:
         tree = " (working tree unknown)"
-    elif rc.git.dirty:
+    elif run_context.git.dirty:
         tree = " (dirty)"
     lines = [
         f"### experiment: {name}",
@@ -40,10 +39,10 @@ def render_experiment(
         f"- **Data:** {n_examples} examples, {train_hours:.1f} h from "
         f"{list(data_sources) if data_sources else 'unknown'}; "
         f"timestamped fraction {config.timestamp_sample_fraction:g}",
-        f"- **Environment:** python {rc.python} · {rc.platform} · "
-        f"git {rc.git.sha or 'unknown'}{tree} · "
-        f"normalizer v{rc.normalizer_version}",
-        f"- **Packages:** {_fmt_packages(rc.packages)}",
+        f"- **Environment:** python {run_context.python} · {run_context.platform} · "
+        f"git {run_context.git.sha or 'unknown'}{tree} · "
+        f"normalizer v{run_context.normalizer_version}",
+        f"- **Packages:** {_fmt_packages(run_context.packages)}",
         f"- **Eval command:** `{eval_command or 'unknown'}`",
         f"- **Metrics:** {_fmt_metrics(metrics, baseline)}",
         "",

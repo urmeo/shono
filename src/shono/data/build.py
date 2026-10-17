@@ -188,11 +188,12 @@ def from_common_voice_tsv(
         clip = text_value(rec["path"], f"{tsv_path}: line {lineno} path")
         if not rec["sentence"].strip():
             continue
+        clip_id = Path(clip).stem
         row = dict(
-            id=Path(clip).stem,
+            id=clip_id,
             audio=f"{audio_subdir}/{clip}",
             text=rec["sentence"],
-            recording_id=rec.get("client_id") or Path(clip).stem,
+            recording_id=rec.get("client_id") or clip_id,
         )
         if clip in durations:
             row["duration_s"] = durations[clip]
@@ -351,11 +352,11 @@ def from_loop_jsonl(
             "Loop recording JSONL is evaluation-only; training requires aligned targets"
         )
     rows = []
+    needed = {"id", "audio_filepath", "duration", "text"}
     for lineno, raw in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
         if not raw.strip():
             continue
         rec = json_object(raw, f"{path}: line {lineno}")
-        needed = {"id", "audio_filepath", "duration", "text"}
         if not needed.issubset(rec):
             raise ValueError(
                 f"{path}: line {lineno}: missing Loop recording fields {needed - set(rec)}"

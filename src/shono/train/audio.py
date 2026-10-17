@@ -33,14 +33,14 @@ def _load_audio(path: Path, start_s: float | None, duration_s: float):
 
 
 def _timestamp_token_id(tokenizer: Any, seconds: float) -> int:
-    """Whisper timestamp token id for ``seconds`` (0.02 s grid from the ``<|0.00|>`` base)."""
+    """Map seconds to Whisper's 0.02 s timestamp grid."""
     seconds = real_number(seconds, "timestamp seconds")
     if not 0 <= seconds <= 30:
         raise ValueError("timestamp seconds must be in [0, 30]")
     base = tokenizer.convert_tokens_to_ids("<|0.00|>")
     if type(base) is not int or base == getattr(tokenizer, "unk_token_id", None):
         raise ValueError("tokenizer does not support Whisper timestamp tokens")
-    steps = int(round(seconds / _TIMESTAMP_RESOLUTION_S))
+    steps = round(seconds / _TIMESTAMP_RESOLUTION_S)
     return base + steps
 
 

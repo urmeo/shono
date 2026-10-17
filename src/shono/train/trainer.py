@@ -28,7 +28,7 @@ from shono.train.source import checkpoint_identity
 
 
 def to_training_arguments(config: TrainConfig, **overrides: Any):
-    """Map :class:`TrainConfig` to a ``Seq2SeqTrainingArguments`` (transformers required)."""
+    """Convert training settings to Transformers arguments."""
     from transformers import Seq2SeqTrainingArguments
 
     args = {
@@ -59,21 +59,24 @@ def to_training_arguments(config: TrainConfig, **overrides: Any):
 
 
 class DataCollatorSpeechSeq2Seq:
-    """Pad log-mel features and label ids into a batch (the standard Whisper collator)."""
+    """Pad audio features, attention masks and decoder labels into a batch."""
 
     def __init__(self, processor: Any, decoder_start_token_id: int) -> None:
         self.processor = processor
         self.decoder_start_token_id = decoder_start_token_id
 
     def __call__(self, features: list[dict]) -> dict:
-        if not features or any(not f["labels"] for f in features):
+        if not features or any(not feature["labels"] for feature in features):
             raise ValueError("collator requires nonempty items and labels")
         input_features = [
-            {"input_features": f["input_features"], "attention_mask": f["attention_mask"]}
-            for f in features
+            {
+                "input_features": feature["input_features"],
+                "attention_mask": feature["attention_mask"],
+            }
+            for feature in features
         ]
         batch = self.processor.feature_extractor.pad(input_features, return_tensors="pt")
-        label_features = [{"input_ids": f["labels"]} for f in features]
+        label_features = [{"input_ids": feature["labels"]} for feature in features]
         labels_batch = self.processor.tokenizer.pad(label_features, return_tensors="pt")
         labels = labels_batch["input_ids"].masked_fill(labels_batch.attention_mask.ne(1), -100)
         starts = labels[:, 0] == self.decoder_start_token_id
@@ -225,7 +228,7 @@ def run_training(
             prior = json_object(identity_path.read_text(encoding="utf-8"), str(identity_path))
         except (ValueError, OSError) as exc:
             raise ValueError("cannot read prior training identity") from exc
-        if isinstance(prior, dict) and isinstance(prior.get("config"), dict):
+        if isinstance(prior.get("config"), dict):
             prior["config"].pop("resume", None)
             if "audio_files_sha256" not in prior:
                 if prior.get("manifests") != identity["manifests"] or any(
@@ -262,10 +265,10 @@ def run_training(
         max_target_positions=model_config.max_target_positions,
         decoder_start_token_id=model_config.decoder_start_token_id,
     )
-    train_ds = WhisperFineTuneDataset(train_examples, processor, config, **dataset_options)
-    eval_ds = WhisperFineTuneDataset(eval_examples, processor, config, **dataset_options)
-    train_ds.validate_labels()
-    eval_ds.validate_labels()
+    train_dataset = WhisperFineTuneDataset(train_examples, processor, config, **dataset_options)
+    eval_dataset = WhisperFineTuneDataset(eval_examples, processor, config, **dataset_options)
+    train_dataset.validate_labels()
+    eval_dataset.validate_labels()
     model = WhisperForConditionalGeneration.from_pretrained(model_id, **load_options)
     if checkpoint_identity(config.model_id, config.model_revision) != base_checkpoint:
         raise ValueError("local base checkpoint changed while loading")
@@ -289,8 +292,8 @@ def run_training(
     trainer = Seq2SeqTrainer(
         model=model,
         args=to_training_arguments(config),
-        train_dataset=train_ds,
-        eval_dataset=eval_ds,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
         data_collator=collator,
         compute_metrics=build_compute_metrics(processor),
         processing_class=processor,
@@ -333,8 +336,7 @@ def smoke_step(output_dir: str | Path) -> dict:
     labels = torch.randint(3, 64, (2, 8))
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 
-    out_before = model(input_features=input_features, labels=labels)
-    loss = out_before.loss
+    loss = model(input_features=input_features, labels=labels).loss
     loss.backward()
     optimizer.step()
 

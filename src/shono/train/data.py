@@ -15,7 +15,7 @@ from shono.eval.normalize import NORMALIZER_VERSION, normalize
 
 @dataclass(frozen=True)
 class TrainExample:
-    """One training item: a span of audio, its target text, and whether to train timestamps."""
+    """An audio span, target text and optional timestamp supervision."""
 
     audio: str
     text: str
@@ -75,40 +75,41 @@ def build_examples(
         raise ValueError("role must be train or eval")
     if not isinstance(registry, LicenseRegistry):
         raise ValueError("registry must be a LicenseRegistry")
-    if any(not isinstance(m, Manifest) for m in manifests):
+    if any(not isinstance(manifest, Manifest) for manifest in manifests):
         raise ValueError("example selection requires Manifest records")
-    if not manifests or len({m.name for m in manifests}) != len(manifests):
+    if not manifests or len({manifest.name for manifest in manifests}) != len(manifests):
         raise ValueError("need distinct named manifests")
-    for m in manifests:
-        if role == "train" and m.split != "train":
-            raise ValueError(f"manifest {m.name!r}: dev/test data must never enter training")
-        if role == "eval" and m.split not in {"dev", "test"}:
+    for manifest in manifests:
+        if role == "train" and manifest.split != "train":
+            raise ValueError(f"manifest {manifest.name!r}: dev/test data must never enter training")
+        if role == "eval" and manifest.split not in {"dev", "test"}:
             raise ValueError("evaluation examples require dev or test manifests")
-        m.validate_against(registry, training=role == "train")
+        manifest.validate_against(registry, training=role == "train")
 
     kept: list[TrainExample] = []
-    for m in manifests:
-        for seg in m.segments:
-            if min_chunk_length_s <= seg.duration_s <= chunk_length_s:
-                if not normalize(seg.text):
-                    raise ValueError(
-                        f"manifest {m.name!r}, segment {seg.id!r}: target is empty after "
-                        f"evaluation normalization v{NORMALIZER_VERSION}"
-                    )
-                kept.append(
-                    TrainExample(
-                        audio=seg.audio,
-                        text=seg.text,
-                        duration_s=seg.duration_s,
-                        recording_id=seg.recording_id,
-                        source=m.source,
-                        start_s=seg.start_s,
-                        id=seg.id,
-                        split=m.split,
-                        language=seg.language,
-                        audio_sha256=seg.audio_sha256,
-                    )
+    for manifest in manifests:
+        for segment in manifest.segments:
+            if not min_chunk_length_s <= segment.duration_s <= chunk_length_s:
+                continue
+            if not normalize(segment.text):
+                raise ValueError(
+                    f"manifest {manifest.name!r}, segment {segment.id!r}: target is empty after "
+                    f"evaluation normalization v{NORMALIZER_VERSION}"
                 )
+            kept.append(
+                TrainExample(
+                    audio=segment.audio,
+                    text=segment.text,
+                    duration_s=segment.duration_s,
+                    recording_id=segment.recording_id,
+                    source=manifest.source,
+                    start_s=segment.start_s,
+                    id=segment.id,
+                    split=manifest.split,
+                    language=segment.language,
+                    audio_sha256=segment.audio_sha256,
+                )
+            )
 
     if not kept:
         raise ValueError(f"no {role} examples survive the duration bounds")
@@ -117,7 +118,7 @@ def build_examples(
     if len(set(identities)) != len(identities) or len(set(windows)) != len(windows):
         raise ValueError("duplicate training/evaluation items or audio windows")
     kept.sort(key=lambda e: (e.source, e.recording_id, e.audio, e.start_s or 0.0, e.id))
-    n_timestamped = int(round(timestamp_sample_fraction * len(kept)))
+    n_timestamped = round(timestamp_sample_fraction * len(kept))
     if n_timestamped:
         rng = random.Random(seed)
         chosen = set(rng.sample(range(len(kept)), n_timestamped))

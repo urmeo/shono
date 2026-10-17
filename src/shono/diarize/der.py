@@ -152,39 +152,33 @@ def der(
         cuts.extend([lo, hi])
     cuts = sorted(set(cuts))
 
-    overlap: dict[tuple[str, str], float] = {}
-    missed = false_alarm = 0.0
-    total_ref = 0.0
+    intervals: list[tuple[float, set[str], set[str]]] = []
     for a, b in zip(cuts, cuts[1:], strict=False):
-        d = b - a
-        if d <= 0 or _in_any(no_score, a, b):
+        duration = b - a
+        if duration <= 0 or _in_any(no_score, a, b):
             continue
-        r_active = _active(reference, a, b)
-        if cfg.skip_overlap and len(r_active) > 1:
+        active_refs = _active(reference, a, b)
+        if cfg.skip_overlap and len(active_refs) > 1:
             continue
-        h_active = _active(hypothesis, a, b)
-        for r in r_active:
-            for h in h_active:
-                overlap[(r, h)] = overlap.get((r, h), 0.0) + d
+        intervals.append((duration, active_refs, _active(hypothesis, a, b)))
+
+    overlap: dict[tuple[str, str], float] = {}
+    for duration, active_refs, active_hyps in intervals:
+        for r in active_refs:
+            for h in active_hyps:
+                overlap[(r, h)] = overlap.get((r, h), 0.0) + duration
                 finite_real(overlap[(r, h)], "speaker overlap", minimum=0)
 
     mapping = _max_weight_matching(refs, hyps, overlap)
 
-    confusion = 0.0
-    for a, b in zip(cuts, cuts[1:], strict=False):
-        d = b - a
-        if d <= 0 or _in_any(no_score, a, b):
-            continue
-        r_active = _active(reference, a, b)
-        if cfg.skip_overlap and len(r_active) > 1:
-            continue
-        h_active = _active(hypothesis, a, b)
-        total_ref += d * len(r_active)
-        n_ref, n_sys = len(r_active), len(h_active)
-        n_correct = sum(1 for r in r_active if any(mapping.get(h) == r for h in h_active))
-        missed += d * max(0, n_ref - n_sys)
-        false_alarm += d * max(0, n_sys - n_ref)
-        confusion += d * (min(n_ref, n_sys) - n_correct)
+    missed = false_alarm = confusion = total_ref = 0.0
+    for duration, active_refs, active_hyps in intervals:
+        n_ref, n_sys = len(active_refs), len(active_hyps)
+        n_correct = sum(any(mapping.get(h) == r for h in active_hyps) for r in active_refs)
+        total_ref += duration * n_ref
+        missed += duration * max(0, n_ref - n_sys)
+        false_alarm += duration * max(0, n_sys - n_ref)
+        confusion += duration * (min(n_ref, n_sys) - n_correct)
         for value in (total_ref, missed, false_alarm, confusion):
             finite_real(value, "DER component", minimum=0)
 

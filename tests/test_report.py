@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from contextlib import contextmanager
 from dataclasses import asdict, replace
 from pathlib import Path
 
@@ -606,6 +607,39 @@ def test_render_failure_writes_no_files(base, registry, monkeypatch):
     with pytest.raises(ValueError, match="broken"):
         write_report(report, out)
     assert not out.exists()
+
+
+def test_report_write_failure_cleans_staging_and_preserves_outputs(base, registry, monkeypatch):
+    import shono.eval.report as report_module
+
+    report = build_report(_spec(base, [{"name": "s", "predictions": {}}]), base, registry)
+    out = base / "outputs"
+    out.mkdir()
+    originals = {out / "t.md": "existing markdown\n", out / "t.json": '{"existing":true}\n'}
+    for path, text in originals.items():
+        path.write_text(text, encoding="utf-8")
+
+    named_temporary_file = report_module.tempfile.NamedTemporaryFile
+    staged_count = 0
+
+    def fail_write(_text):
+        raise OSError("staged write failed")
+
+    @contextmanager
+    def fail_second_write(**kwargs):
+        nonlocal staged_count
+        staged_count += 1
+        with named_temporary_file(**kwargs) as handle:
+            if staged_count == 2:
+                monkeypatch.setattr(handle, "write", fail_write)
+            yield handle
+
+    monkeypatch.setattr(report_module.tempfile, "NamedTemporaryFile", fail_second_write)
+    with pytest.raises(OSError, match="staged write failed"):
+        write_report(report, out)
+
+    assert set(out.iterdir()) == set(originals)
+    assert {path: path.read_text(encoding="utf-8") for path in originals} == originals
 
 
 def test_report_cannot_overwrite_spec(base, registry):

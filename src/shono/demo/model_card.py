@@ -6,7 +6,7 @@ import json
 from collections.abc import Mapping, Sequence
 
 from shono.eval.model import validate_scored_model
-from shono.eval.report import _md
+from shono.markdown import escape_cell
 from shono.transcribe._validation import finite_real
 
 
@@ -15,8 +15,8 @@ def _validate_text(value: object, name: str) -> None:
         raise ValueError(f"{name} must be a nonempty string; use 'unknown' when unresolved")
 
 
-def _wer_str(cell: Mapping | None) -> str:
-    if not cell or cell.get("status") == "pending":
+def _format_wer(cell: Mapping) -> str:
+    if cell.get("status") == "pending":
         return "pending"
     if cell.get("status") != "scored" or not isinstance(cell.get("wer_norm"), Mapping):
         raise ValueError("invalid scored model-card cell")
@@ -136,8 +136,8 @@ def render_model_card(
         checkpoint = (
             cell.get("model_id", "unknown") if cell.get("status") == "scored" else "pending"
         )
-        row = (name, _wer_str(cell), f"{policy} v{version}", checkpoint)
-        lines.append("| " + " | ".join(_md(value) for value in row) + " |")
+        row = (name, _format_wer(cell), f"{policy} v{version}", checkpoint)
+        lines.append("| " + " | ".join(escape_cell(value) for value in row) + " |")
     lines += ["", f"Protocol and inputs: [Shono]({repo_url})."]
     if limitations:
         lines += ["", "## Limits", "", *[f"- {item}" for item in limitations]]

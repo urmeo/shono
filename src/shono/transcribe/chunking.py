@@ -93,7 +93,7 @@ def plan_chunks(
         elif current is None:
             current = (seg.start_s, seg.end_s)
         elif seg.end_s - current[0] <= core:
-            current = (current[0], max(current[1], seg.end_s))
+            current = (current[0], seg.end_s)
         else:
             append(*current)
             current = (seg.start_s, seg.end_s)

@@ -125,7 +125,9 @@ class LicenseRegistry:
         )
         order = {"active": 0, "eval-only": 1, "excluded": 2}
         rows = []
-        for lic in sorted(self._by_id.values(), key=lambda x: (order.get(x.status, 9), x.id)):
+        for lic in sorted(
+            self._by_id.values(), key=lambda record: (order[record.status], record.id)
+        ):
             hours = "unknown" if lic.hours is None else f"{lic.hours:g}"
             audio = "unknown"
             if lic.redistributable_audio is not None:

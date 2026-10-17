@@ -19,8 +19,10 @@ _REQUIRED_SEGMENT = ("id", "audio", "text", "duration_s", "recording_id")
 
 @dataclass(frozen=True)
 class Segment:
-    """One reference span. None start denotes a whole file; numeric start denotes an aligned
-    crop. recording_id is the bootstrap block, and audio_sha256 hashes complete file bytes."""
+    """A reference span: None start means a whole file; numeric start means an aligned crop.
+
+    recording_id is the bootstrap block. audio_sha256 hashes complete file bytes.
+    """
 
     id: str
     audio: str
@@ -182,8 +184,7 @@ class Manifest:
         missing_head = [k for k in _REQUIRED_HEADER if k not in meta]
         if missing_head:
             raise ValueError(
-                f"manifest header in {path} is missing required field(s): "
-                f"{missing_head}. A manifest header needs {list(_REQUIRED_HEADER)}."
+                f"manifest header in {path} is missing required field(s): {missing_head}"
             )
         seg_fields = {f.name for f in fields(Segment)}
         unknown = set(meta) - set(cls._HEADER_FIELDS)
@@ -196,7 +197,7 @@ class Manifest:
             if missing_seg:
                 raise ValueError(
                     f"segment on line {lineno} of {path} is missing required field(s): "
-                    f"{missing_seg}. A segment needs {list(_REQUIRED_SEGMENT)}."
+                    f"{missing_seg}"
                 )
             unknown = set(rec) - seg_fields
             if unknown:

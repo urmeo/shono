@@ -20,7 +20,7 @@ from shono.eval.codeswitch import CS_NORMALIZER_VERSION, code_switch_normalize
 from shono.eval.model import MODEL_KINDS, validate_scored_model
 from shono.eval.normalize import NORMALIZER_VERSION, normalize
 from shono.eval.score import ScoreReport, score
-from shono.markdown import escape_cell as _md
+from shono.markdown import escape_cell
 from shono.output_paths import source_files, validate_output_destinations, write_text_atomic
 from shono.provenance import RunContext, safe_command, safe_metadata
 from shono.transcribe._validation import finite_real
@@ -35,12 +35,11 @@ def _normalization_for(domain: str) -> tuple[Callable[[str], str], str, str]:
     return normalize, "bengali", NORMALIZER_VERSION
 
 
-def _relative_path(value: object, name: str) -> str:
+def _validate_relative_path(value: object, name: str) -> None:
     value = text_value(value, name)
     path = PurePosixPath(value)
     if path.is_absolute() or ".." in path.parts or "\\" in value:
         raise ValueError(f"{name} must be a relative POSIX path without traversal")
-    return value
 
 
 def _load_manifest(path: Path) -> tuple[Manifest, str]:
@@ -187,20 +186,20 @@ def score_slice(
         normalizer_version=version,
     )
     normalized = [(rid, normalizer(r), normalizer(h)) for rid, r, h in records]
-    one_block = len(manifest.recording_ids()) < 2
+    recording_count = len(manifest.recording_ids())
     return SliceScore(
         system=predictions.system,
         slice_name=slice_name or manifest.name,
         domain=manifest.domain,
         status="scored",
         n_segments=len(manifest.segments),
-        n_recordings=len(manifest.recording_ids()),
+        n_recordings=recording_count,
         score=result,
         wer_ci=None
-        if one_block
+        if recording_count < 2
         else blockwise_bootstrap_ci(normalized, "wer", n_resamples=n_resamples, seed=seed),
         cer_ci=None
-        if one_block
+        if recording_count < 2
         else blockwise_bootstrap_ci(normalized, "cer", n_resamples=n_resamples, seed=seed),
         normalization_policy=policy,
         normalizer_version=version,
@@ -223,7 +222,7 @@ class SliceSpec:
 
     def __post_init__(self) -> None:
         text_value(self.name, "slice name")
-        _relative_path(self.manifest, "manifest path")
+        _validate_relative_path(self.manifest, "manifest path")
         if not isinstance(self.domain, str):
             raise ValueError("slice domain must be a string")
 
@@ -247,7 +246,7 @@ class SystemSpec:
             raise ValueError("predictions and inference_modes must be objects")
         for name, path in self.predictions.items():
             text_value(name, "prediction slice")
-            _relative_path(path, "prediction path")
+            _validate_relative_path(path, "prediction path")
         for name, mode in self.inference_modes.items():
             text_value(name, "inference slice")
             text_value(mode, "inference mode")
@@ -264,7 +263,7 @@ class SystemSpec:
         if not isinstance(self.train_manifests, (tuple, list)):
             raise ValueError("train_manifests must be unique paths")
         for path in self.train_manifests:
-            _relative_path(path, "training manifest path")
+            _validate_relative_path(path, "training manifest path")
         if len(set(self.train_manifests)) != len(self.train_manifests):
             raise ValueError("train_manifests must be unique paths")
         if not isinstance(self.text_decisions, dict) or not isinstance(self.pending_slices, dict):
@@ -328,7 +327,7 @@ class ReportSpec:
         if not isinstance(self.train_manifests, (tuple, list)):
             raise ValueError("train_manifests must be a sequence")
         for path in self.train_manifests:
-            _relative_path(path, "training manifest path")
+            _validate_relative_path(path, "training manifest path")
         if self.audio_root is not None:
             text_value(self.audio_root, "audio_root")
 
@@ -487,15 +486,15 @@ class Report:
 
     def _row(self, system: str, slice_name: str) -> str:
         cell = self.cell(system, slice_name)
-        policy = _md(f"{cell.normalization_policy} v{cell.normalizer_version}")
+        policy = escape_cell(f"{cell.normalization_policy} v{cell.normalizer_version}")
         if cell.is_pending:
-            return f"| {_md(system)} | pending | pending | pending | pending | {policy} |"
+            return f"| {escape_cell(system)} | pending | pending | pending | pending | {policy} |"
         assert cell.score is not None
         no_ci = "{:.1%} (1 block, no CI)"
         wer = self._pct_ci(cell.wer_ci) if cell.wer_ci else no_ci.format(cell.score.wer_normalized)
         cer = self._pct_ci(cell.cer_ci) if cell.cer_ci else no_ci.format(cell.score.cer_normalized)
         return (
-            f"| {_md(system)} | {wer} | {cer} | {cell.score.wer_raw:.1%} | "
+            f"| {escape_cell(system)} | {wer} | {cer} | {cell.score.wer_raw:.1%} | "
             f"{cell.score.cer_raw:.1%} | {policy} |"
         )
 
@@ -508,7 +507,7 @@ class Report:
         elif rc.git.dirty:
             tree = " (dirty)"
         lines = [
-            f"# {_md(self.title)}",
+            f"# {escape_cell(self.title)}",
             "",
             f"- Generated: {rc.timestamp}",
             f"- Scoring command: `{rc.command or 'unknown'}`",
@@ -522,7 +521,7 @@ class Report:
         for name in self.slice_order:
             first = self.cell(self.system_order[0], name)
             lines += [
-                f"## {_md(name)} ({_md(first.domain)})",
+                f"## {escape_cell(name)} ({escape_cell(first.domain)})",
                 "",
                 "| System | WER (norm, 95% CI) | CER (norm, 95% CI) | "
                 "WER (raw) | CER (raw) | Policy |",
@@ -536,11 +535,12 @@ class Report:
                     "unknown" if cell.inference_context == "unknown" else "recorded in JSON"
                 )
                 lines.append(
-                    f"- {_md(system)}: model `{cell.model_id}`; mode {cell.inference_mode}; "
+                    f"- {escape_cell(system)}: model `{cell.model_id}`; "
+                    f"mode {cell.inference_mode}; "
                     f"inference context {context_status}; leakage {cell.leakage_audit['status']}."
                 )
                 if cell.pending_reason:
-                    lines.append(f"  Pending reason: {_md(cell.pending_reason)}.")
+                    lines.append(f"  Pending reason: {escape_cell(cell.pending_reason)}.")
             lines += [""]
         if any(cell.domain == _CODE_SWITCH_DOMAIN for cell in self.cells):
             lines += [
@@ -554,7 +554,7 @@ class Report:
             lines += [
                 "## Leakage audit",
                 "",
-                *[f"- {_md(note)}" for note in self.leakage_notes],
+                *[f"- {escape_cell(note)}" for note in self.leakage_notes],
                 "",
             ]
         lines += ["## Data licenses", "", self.license_table, ""]
@@ -851,8 +851,8 @@ def write_report(report: Report, out_dir: str | Path) -> tuple[Path, Path]:
             with tempfile.NamedTemporaryFile(
                 mode="w", encoding="utf-8", dir=out, delete=False
             ) as handle:
-                handle.write(text)
                 staged.append(Path(handle.name))
+                handle.write(text)
         for temporary, destination in zip(staged, destinations, strict=True):
             os.replace(temporary, destination)
     finally:
