@@ -1,0 +1,69 @@
+figure,field,value
+provenance,sha256:tests/support.py,f8f0f647a6fa0f883855de009ec4527a7b3cfd6a063cc6822b43cb318a6b80a7
+provenance,sha256:src/shono/eval/score.py,175d2373a2d26e123b3699f8aa4ad17a7ea428988587efec04ec8a0ad1af3e32
+provenance,sha256:src/shono/eval/normalize.py,3948cd7dcdcb2be2c7cbd9c0fd3f746e5e944a4b5fae7e9614d0d6d7fb4444fe
+provenance,sha256:src/shono/eval/ci.py,157ee78b2da4d59d0202010ceb0a77f85190a411429b97b594b7fed62680fe77
+cer,cases[0].name,identical
+cer,cases[0].label,Identical
+cer,cases[0].references[0],আমি ভাত খাই
+cer,cases[0].hypotheses[0],আমি ভাত খাই
+cer,cases[0].expected_wer,0.0
+cer,cases[0].expected_cer,0.0
+cer,cases[0].computed_cer,0.0
+cer,cases[1].name,one_word_substituted
+cer,cases[1].label,1 word substituted
+cer,cases[1].references[0],আমি ভাত খাই
+cer,cases[1].hypotheses[0],আমি ডাল খাই
+cer,cases[1].expected_wer,0.3333333333333333
+cer,cases[1].expected_cer,0.18181818181818182
+cer,cases[1].computed_cer,0.18181818181818182
+cer,cases[2].name,one_word_deleted
+cer,cases[2].label,1 word deleted
+cer,cases[2].references[0],আমি ভাত খাই আজ
+cer,cases[2].hypotheses[0],আমি ভাত খাই
+cer,cases[2].expected_wer,0.25
+cer,cases[2].expected_cer,0.21428571428571427
+cer,cases[2].computed_cer,0.21428571428571427
+cer,cases[3].name,code_switch_identical
+cer,cases[3].label,Identical mixed script
+cer,cases[3].references[0],আমি bank এ যাব
+cer,cases[3].hypotheses[0],আমি bank এ যাব
+cer,cases[3].expected_wer,0.0
+cer,cases[3].expected_cer,0.0
+cer,cases[3].computed_cer,0.0
+cer,cases[4].name,corpus_pools_errors_across_segments
+cer,cases[4].label,Pooled: equal lengths
+cer,cases[4].references[0],আমি ভাত খাই
+cer,cases[4].references[1],সে ঘরে থাকে
+cer,cases[4].hypotheses[0],আমি ডাল খাই
+cer,cases[4].hypotheses[1],সে ঘরে থাকে
+cer,cases[4].expected_wer,0.16666666666666666
+cer,cases[4].expected_cer,0.09090909090909091
+cer,cases[4].computed_cer,0.09090909090909091
+bootstrap,records[0][0],A
+bootstrap,records[0][1],আমি ভাত খাই
+bootstrap,records[0][2],আমি ভাত খাই
+bootstrap,records[1][0],A
+bootstrap,records[1][1],সে ঘরে থাকে
+bootstrap,records[1][2],সে ঘরে থাকে
+bootstrap,records[2][0],B
+bootstrap,records[2][1],আমি ভাত খাই
+bootstrap,records[2][2],আমি ডাল খাই
+bootstrap,records[3][0],B
+bootstrap,records[3][1],তুমি ভাল আছ
+bootstrap,records[3][2],তুমি ভাল নাই
+bootstrap,metric,wer
+bootstrap,seed,0
+bootstrap,n_resamples,1000
+bootstrap,confidence,0.95
+bootstrap,point,0.16666666666666666
+bootstrap,lower,0.0
+bootstrap,upper,0.3333333333333333
+bootstrap,n_blocks,2
+bootstrap,n_segments,4
+bootstrap,distribution[0].wer,0.0
+bootstrap,distribution[0].count,243
+bootstrap,distribution[1].wer,0.16666666666666666
+bootstrap,distribution[1].count,513
+bootstrap,distribution[2].wer,0.3333333333333333
+bootstrap,distribution[2].count,244

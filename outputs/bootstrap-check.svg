@@ -1,0 +1,398 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="864pt" height="475.2pt" viewBox="0 0 864 475.2" xmlns="http://www.w3.org/2000/svg" version="1.1" role="img" aria-labelledby="chart-title chart-description">
+<title id="chart-title">Synthetic block bootstrap</title>
+<desc id="chart-description">One thousand seeded draws of two synthetic blocks produce 243 WER values at 0%, 513 at 16.6667%, and 244 at 33.3333%. The empirical cumulative curve is discrete. This illustrates bootstrap behavior, not model performance.</desc>
+<metadata id="verified-data">{&quot;source&quot;:&quot;tests/support.py:CI_BLOCKS; src/shono/eval/ci.py:blockwise_bootstrap_ci&quot;,&quot;inputs_and_results&quot;:{&quot;records&quot;:[[&quot;A&quot;,&quot;আমি ভাত খাই&quot;,&quot;আমি ভাত খাই&quot;],[&quot;A&quot;,&quot;সে ঘরে থাকে&quot;,&quot;সে ঘরে থাকে&quot;],[&quot;B&quot;,&quot;আমি ভাত খাই&quot;,&quot;আমি ডাল খাই&quot;],[&quot;B&quot;,&quot;তুমি ভাল আছ&quot;,&quot;তুমি ভাল নাই&quot;]],&quot;metric&quot;:&quot;wer&quot;,&quot;seed&quot;:0,&quot;n_resamples&quot;:1000,&quot;confidence&quot;:0.95,&quot;point&quot;:0.16666666666666666,&quot;lower&quot;:0.0,&quot;upper&quot;:0.3333333333333333,&quot;n_blocks&quot;:2,&quot;n_segments&quot;:4,&quot;distribution&quot;:[{&quot;wer&quot;:0.0,&quot;count&quot;:243},{&quot;wer&quot;:0.16666666666666666,&quot;count&quot;:513},{&quot;wer&quot;:0.3333333333333333,&quot;count&quot;:244}]},&quot;verified_source_files_sha256&quot;:{&quot;tests/support.py&quot;:&quot;f8f0f647a6fa0f883855de009ec4527a7b3cfd6a063cc6822b43cb318a6b80a7&quot;,&quot;src/shono/eval/score.py&quot;:&quot;175d2373a2d26e123b3699f8aa4ad17a7ea428988587efec04ec8a0ad1af3e32&quot;,&quot;src/shono/eval/normalize.py&quot;:&quot;3948cd7dcdcb2be2c7cbd9c0fd3f746e5e944a4b5fae7e9614d0d6d7fb4444fe&quot;,&quot;src/shono/eval/ci.py&quot;:&quot;157ee78b2da4d59d0202010ceb0a77f85190a411429b97b594b7fed62680fe77&quot;}}</metadata>
+ <title>Synthetic block bootstrap</title>
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:title>Synthetic block bootstrap</dc:title>
+    <dc:description>One thousand seeded draws of two synthetic blocks produce 243 WER values at 0%, 513 at 16.6667%, and 244 at 33.3333%. The empirical cumulative curve is discrete. This illustrates bootstrap behavior, not model performance.</dc:description>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.9.4, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 475.2
+L 864 475.2
+L 864 0
+L 0 0
+z
+" style="fill: #f7fafc"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 69.12 337.392
+L 388.8 337.392
+L 388.8 114.048
+L 69.12 114.048
+z
+" style="fill: #f7fafc"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1">
+      <defs>
+       <path id="mfc0ef5d254" d="M 0 0
+L 0 3.5
+" style="stroke: #526578; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#mfc0ef5d254" x="110.817391" y="337.392" style="fill: #526578; stroke: #526578; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <text style="fill: #526578; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="110.817391" y="354.269969" transform="rotate(-0 110.817391 354.269969)">0%</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_2">
+      <g>
+       <use xlink:href="#mfc0ef5d254" x="226.643478" y="337.392" style="fill: #526578; stroke: #526578; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <text style="fill: #526578; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="226.643478" y="354.269969" transform="rotate(-0 226.643478 354.269969)">16.7%</text>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_3">
+      <g>
+       <use xlink:href="#mfc0ef5d254" x="342.469565" y="337.392" style="fill: #526578; stroke: #526578; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_3">
+      <text style="fill: #526578; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="342.469565" y="354.269969" transform="rotate(-0 342.469565 354.269969)">33.3%</text>
+     </g>
+    </g>
+    <g id="text_4">
+     <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="228.96" y="378.851531" transform="rotate(-0 228.96 378.851531)">Word error rate</text>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_4">
+      <path d="M 69.12 337.392
+L 388.8 337.392
+" clip-path="url(#p2cf5468950)" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_5">
+      <defs>
+       <path id="m6086d9abc1" d="M 0 0
+L -3.5 0
+" style="stroke: #172b42; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#m6086d9abc1" x="69.12" y="337.392" style="fill: #172b42; stroke: #172b42; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_5">
+      <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: end" x="62.12" y="342.330984" transform="rotate(-0 62.12 342.330984)">0</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_6">
+      <path d="M 69.12 262.944
+L 388.8 262.944
+" clip-path="url(#p2cf5468950)" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_7">
+      <g>
+       <use xlink:href="#m6086d9abc1" x="69.12" y="262.944" style="fill: #172b42; stroke: #172b42; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_6">
+      <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: end" x="62.12" y="267.882984" transform="rotate(-0 62.12 267.882984)">200</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_8">
+      <path d="M 69.12 188.496
+L 388.8 188.496
+" clip-path="url(#p2cf5468950)" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_9">
+      <g>
+       <use xlink:href="#m6086d9abc1" x="69.12" y="188.496" style="fill: #172b42; stroke: #172b42; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_7">
+      <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: end" x="62.12" y="193.434984" transform="rotate(-0 62.12 193.434984)">400</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_10">
+      <path d="M 69.12 114.048
+L 388.8 114.048
+" clip-path="url(#p2cf5468950)" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_11">
+      <g>
+       <use xlink:href="#m6086d9abc1" x="69.12" y="114.048" style="fill: #172b42; stroke: #172b42; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_8">
+      <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: end" x="62.12" y="118.986984" transform="rotate(-0 62.12 118.986984)">600</text>
+     </g>
+    </g>
+    <g id="text_9">
+     <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="30.602656" y="225.72" transform="rotate(-90 30.602656 225.72)">Resamples</text>
+    </g>
+   </g>
+   <g id="patch_3">
+    <path d="M 86.493913 337.392
+L 135.14087 337.392
+L 135.14087 246.93768
+L 86.493913 246.93768
+z
+" clip-path="url(#p2cf5468950)" style="fill: #2873ab"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 202.32 337.392
+L 250.966957 337.392
+L 250.966957 146.43288
+L 202.32 146.43288
+z
+" clip-path="url(#p2cf5468950)" style="fill: #2873ab"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 318.146087 337.392
+L 366.793043 337.392
+L 366.793043 246.56544
+L 318.146087 246.56544
+z
+" clip-path="url(#p2cf5468950)" style="fill: #2873ab"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 69.12 337.392
+L 388.8 337.392
+" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_10">
+    <text style="fill: #172b42; font: 700 15px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="110.817391" y="240.6096" transform="rotate(-0 110.817391 240.6096)">243</text>
+   </g>
+   <g id="text_11">
+    <text style="fill: #172b42; font: 700 15px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="226.643478" y="140.1048" transform="rotate(-0 226.643478 140.1048)">513</text>
+   </g>
+   <g id="text_12">
+    <text style="fill: #172b42; font: 700 15px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="342.469565" y="240.23736" transform="rotate(-0 342.469565 240.23736)">244</text>
+   </g>
+   <g id="text_13">
+    <text style="fill: #172b42; font: 700 16px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="69.12" y="100.048" transform="rotate(-0 69.12 100.048)">Resample counts</text>
+   </g>
+  </g>
+  <g id="axes_2">
+   <g id="patch_7">
+    <path d="M 509.76 337.392
+L 820.8 337.392
+L 820.8 114.048
+L 509.76 114.048
+z
+" style="fill: #f7fafc"/>
+   </g>
+   <g id="matplotlib.axis_3">
+    <g id="xtick_4">
+     <g id="line2d_12">
+      <g>
+       <use xlink:href="#mfc0ef5d254" x="539.382857" y="337.392" style="fill: #526578; stroke: #526578; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_14">
+      <text style="fill: #526578; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="539.382857" y="354.269969" transform="rotate(-0 539.382857 354.269969)">0%</text>
+     </g>
+    </g>
+    <g id="xtick_5">
+     <g id="line2d_13">
+      <g>
+       <use xlink:href="#mfc0ef5d254" x="662.811429" y="337.392" style="fill: #526578; stroke: #526578; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_15">
+      <text style="fill: #526578; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="662.811429" y="354.269969" transform="rotate(-0 662.811429 354.269969)">16.7%</text>
+     </g>
+    </g>
+    <g id="xtick_6">
+     <g id="line2d_14">
+      <g>
+       <use xlink:href="#mfc0ef5d254" x="786.24" y="337.392" style="fill: #526578; stroke: #526578; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_16">
+      <text style="fill: #526578; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="786.24" y="354.269969" transform="rotate(-0 786.24 354.269969)">33.3%</text>
+     </g>
+    </g>
+    <g id="text_17">
+     <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="665.28" y="378.851531" transform="rotate(-0 665.28 378.851531)">Word error rate</text>
+    </g>
+   </g>
+   <g id="matplotlib.axis_4">
+    <g id="ytick_5">
+     <g id="line2d_15">
+      <path d="M 509.76 329.555368
+L 820.8 329.555368
+" clip-path="url(#p87ea3855ca)" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_16">
+      <g>
+       <use xlink:href="#m6086d9abc1" x="509.76" y="329.555368" style="fill: #172b42; stroke: #172b42; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_18">
+      <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: end" x="502.76" y="334.494353" transform="rotate(-0 502.76 334.494353)">0%</text>
+     </g>
+    </g>
+    <g id="ytick_6">
+     <g id="line2d_17">
+      <path d="M 509.76 280.576421
+L 820.8 280.576421
+" clip-path="url(#p87ea3855ca)" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_18">
+      <g>
+       <use xlink:href="#m6086d9abc1" x="509.76" y="280.576421" style="fill: #172b42; stroke: #172b42; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_19">
+      <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: end" x="502.76" y="285.515405" transform="rotate(-0 502.76 285.515405)">25%</text>
+     </g>
+    </g>
+    <g id="ytick_7">
+     <g id="line2d_19">
+      <path d="M 509.76 231.597474
+L 820.8 231.597474
+" clip-path="url(#p87ea3855ca)" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_20">
+      <g>
+       <use xlink:href="#m6086d9abc1" x="509.76" y="231.597474" style="fill: #172b42; stroke: #172b42; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_20">
+      <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: end" x="502.76" y="236.536458" transform="rotate(-0 502.76 236.536458)">50%</text>
+     </g>
+    </g>
+    <g id="ytick_8">
+     <g id="line2d_21">
+      <path d="M 509.76 182.618526
+L 820.8 182.618526
+" clip-path="url(#p87ea3855ca)" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_22">
+      <g>
+       <use xlink:href="#m6086d9abc1" x="509.76" y="182.618526" style="fill: #172b42; stroke: #172b42; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_21">
+      <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: end" x="502.76" y="187.557511" transform="rotate(-0 502.76 187.557511)">75%</text>
+     </g>
+    </g>
+    <g id="ytick_9">
+     <g id="line2d_23">
+      <path d="M 509.76 133.639579
+L 820.8 133.639579
+" clip-path="url(#p87ea3855ca)" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_24">
+      <g>
+       <use xlink:href="#m6086d9abc1" x="509.76" y="133.639579" style="fill: #172b42; stroke: #172b42; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_22">
+      <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: end" x="502.76" y="138.578563" transform="rotate(-0 502.76 138.578563)">100%</text>
+     </g>
+    </g>
+    <g id="text_23">
+     <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="458.890625" y="225.72" transform="rotate(-90 458.890625 225.72)">Resamples at or below WER</text>
+    </g>
+   </g>
+   <g id="line2d_25">
+    <path d="M 509.76 329.555368
+L 539.382857 329.555368
+L 539.382857 281.947832
+L 662.811429 281.947832
+L 662.811429 181.443032
+L 786.24 181.443032
+L 786.24 133.639579
+L 820.8 133.639579
+L 820.8 133.639579
+" clip-path="url(#p87ea3855ca)" style="fill: none; stroke: #2873ab; stroke-width: 2.5; stroke-linecap: square"/>
+   </g>
+   <g id="patch_8">
+    <path d="M 509.76 337.392
+L 820.8 337.392
+" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_24">
+    <text style="fill: #172b42; font: 11px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="546.382857" y="300.947832" transform="rotate(-0 546.382857 300.947832)">24.3%</text>
+   </g>
+   <g id="text_25">
+    <text style="fill: #172b42; font: 11px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="669.811429" y="200.443032" transform="rotate(-0 669.811429 200.443032)">75.6%</text>
+   </g>
+   <g id="text_26">
+    <text style="fill: #172b42; font: 11px 'DejaVu Sans', Arial, sans-serif; text-anchor: end" x="793.24" y="152.639579" transform="rotate(-0 793.24 152.639579)">100.0%</text>
+   </g>
+   <g id="text_27">
+    <text style="fill: #172b42; font: 700 16px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="509.76" y="100.048" transform="rotate(-0 509.76 100.048)">Empirical cumulative curve</text>
+   </g>
+   <g id="PathCollection_1">
+    <defs>
+     <path id="mf757c68424" d="M 0 3.24037
+C 0.859356 3.24037 1.683631 2.898944 2.291288 2.291288
+C 2.898944 1.683631 3.24037 0.859356 3.24037 0
+C 3.24037 -0.859356 2.898944 -1.683631 2.291288 -2.291288
+C 1.683631 -2.898944 0.859356 -3.24037 0 -3.24037
+C -0.859356 -3.24037 -1.683631 -2.898944 -2.291288 -2.291288
+C -2.898944 -1.683631 -3.24037 -0.859356 -3.24037 0
+C -3.24037 0.859356 -2.898944 1.683631 -2.291288 2.291288
+C -1.683631 2.898944 -0.859356 3.24037 0 3.24037
+z
+" style="stroke: #2873ab"/>
+    </defs>
+    <g clip-path="url(#p87ea3855ca)">
+     <use xlink:href="#mf757c68424" x="539.382857" y="281.947832" style="fill: #2873ab; stroke: #2873ab"/>
+     <use xlink:href="#mf757c68424" x="662.811429" y="181.443032" style="fill: #2873ab; stroke: #2873ab"/>
+     <use xlink:href="#mf757c68424" x="786.24" y="133.639579" style="fill: #2873ab; stroke: #2873ab"/>
+    </g>
+   </g>
+  </g>
+  <g id="text_28">
+   <text style="fill: #172b42; font: 700 24px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="34.56" y="34.56" transform="rotate(-0 34.56 34.56)">Synthetic block bootstrap</text>
+  </g>
+  <g id="text_29">
+   <text style="fill: #526578; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="34.56" y="62.64" transform="rotate(-0 34.56 62.64)">2 blocks · 4 text segments · 1,000 resamples · seed 0</text>
+  </g>
+  <g id="text_30">
+   <text style="fill: #172b42; font: 700 16px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="34.56" y="408.672" transform="rotate(-0 34.56 408.672)">Point estimate  16.7%</text>
+  </g>
+  <g id="text_31">
+   <text style="fill: #172b42; font: 700 16px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="371.52" y="408.672" transform="rotate(-0 371.52 408.672)">95% interval  0–33.3%</text>
+  </g>
+  <g id="text_32">
+   <text style="fill: #526578; font: 12px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="34.56" y="440.5104" transform="rotate(-0 34.56 440.5104)">Whole blocks sampled with replacement · nearest-rank percentile interval</text>
+  </g>
+  <g id="text_33">
+   <text style="fill: #526578; font: 12px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="34.56" y="460.4688" transform="rotate(-0 34.56 460.4688)">Synthetic fixture · no model accuracy estimate</text>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p2cf5468950">
+   <rect x="69.12" y="114.048" width="319.68" height="223.344"/>
+  </clipPath>
+  <clipPath id="p87ea3855ca">
+   <rect x="509.76" y="114.048" width="311.04" height="223.344"/>
+  </clipPath>
+ </defs>
+</svg>

@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="864pt" height="432pt" viewBox="0 0 864 432" xmlns="http://www.w3.org/2000/svg" version="1.1" role="img" aria-labelledby="chart-title chart-description">
+<title id="chart-title">Character error checks</title>
+<desc id="chart-description">Five synthetic text fixtures match their declared CER expectations. Values are 0%, 18.1818%, 21.4286%, 0%, and 9.0909%. These are scorer checks, not model accuracy.</desc>
+<metadata id="verified-data">{&quot;source&quot;:&quot;tests/support.py:SCORE_CASES; src/shono/eval/score.py:cer&quot;,&quot;inputs_and_results&quot;:[{&quot;name&quot;:&quot;identical&quot;,&quot;label&quot;:&quot;Identical&quot;,&quot;references&quot;:[&quot;আমি ভাত খাই&quot;],&quot;hypotheses&quot;:[&quot;আমি ভাত খাই&quot;],&quot;expected_wer&quot;:0.0,&quot;expected_cer&quot;:0.0,&quot;computed_cer&quot;:0.0},{&quot;name&quot;:&quot;one_word_substituted&quot;,&quot;label&quot;:&quot;1 word substituted&quot;,&quot;references&quot;:[&quot;আমি ভাত খাই&quot;],&quot;hypotheses&quot;:[&quot;আমি ডাল খাই&quot;],&quot;expected_wer&quot;:0.3333333333333333,&quot;expected_cer&quot;:0.18181818181818182,&quot;computed_cer&quot;:0.18181818181818182},{&quot;name&quot;:&quot;one_word_deleted&quot;,&quot;label&quot;:&quot;1 word deleted&quot;,&quot;references&quot;:[&quot;আমি ভাত খাই আজ&quot;],&quot;hypotheses&quot;:[&quot;আমি ভাত খাই&quot;],&quot;expected_wer&quot;:0.25,&quot;expected_cer&quot;:0.21428571428571427,&quot;computed_cer&quot;:0.21428571428571427},{&quot;name&quot;:&quot;code_switch_identical&quot;,&quot;label&quot;:&quot;Identical mixed script&quot;,&quot;references&quot;:[&quot;আমি bank এ যাব&quot;],&quot;hypotheses&quot;:[&quot;আমি bank এ যাব&quot;],&quot;expected_wer&quot;:0.0,&quot;expected_cer&quot;:0.0,&quot;computed_cer&quot;:0.0},{&quot;name&quot;:&quot;corpus_pools_errors_across_segments&quot;,&quot;label&quot;:&quot;Pooled: equal lengths&quot;,&quot;references&quot;:[&quot;আমি ভাত খাই&quot;,&quot;সে ঘরে থাকে&quot;],&quot;hypotheses&quot;:[&quot;আমি ডাল খাই&quot;,&quot;সে ঘরে থাকে&quot;],&quot;expected_wer&quot;:0.16666666666666666,&quot;expected_cer&quot;:0.09090909090909091,&quot;computed_cer&quot;:0.09090909090909091}],&quot;verified_source_files_sha256&quot;:{&quot;tests/support.py&quot;:&quot;f8f0f647a6fa0f883855de009ec4527a7b3cfd6a063cc6822b43cb318a6b80a7&quot;,&quot;src/shono/eval/score.py&quot;:&quot;175d2373a2d26e123b3699f8aa4ad17a7ea428988587efec04ec8a0ad1af3e32&quot;,&quot;src/shono/eval/normalize.py&quot;:&quot;3948cd7dcdcb2be2c7cbd9c0fd3f746e5e944a4b5fae7e9614d0d6d7fb4444fe&quot;}}</metadata>
+ <title>Character error checks</title>
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:title>Character error checks</dc:title>
+    <dc:description>Five synthetic text fixtures match their declared CER expectations. Values are 0%, 18.1818%, 21.4286%, 0%, and 9.0909%. These are scorer checks, not model accuracy.</dc:description>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.9.4, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 432
+L 864 432
+L 864 0
+L 0 0
+z
+" style="fill: #f7fafc"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 246.24 332.64
+L 747.36 332.64
+L 747.36 99.36
+L 246.24 99.36
+z
+" style="fill: #f7fafc"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1">
+      <path d="M 246.24 332.64
+L 246.24 99.36
+" clip-path="url(#p2b1a02d502)" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_2">
+      <defs>
+       <path id="mfc0ef5d254" d="M 0 0
+L 0 3.5
+" style="stroke: #526578; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#mfc0ef5d254" x="246.24" y="332.64" style="fill: #526578; stroke: #526578; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <text style="fill: #526578; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="246.24" y="349.517969" transform="rotate(-0 246.24 349.517969)">0%</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_3">
+      <path d="M 346.464 332.64
+L 346.464 99.36
+" clip-path="url(#p2b1a02d502)" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_4">
+      <g>
+       <use xlink:href="#mfc0ef5d254" x="346.464" y="332.64" style="fill: #526578; stroke: #526578; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <text style="fill: #526578; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="346.464" y="349.517969" transform="rotate(-0 346.464 349.517969)">5%</text>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_5">
+      <path d="M 446.688 332.64
+L 446.688 99.36
+" clip-path="url(#p2b1a02d502)" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_6">
+      <g>
+       <use xlink:href="#mfc0ef5d254" x="446.688" y="332.64" style="fill: #526578; stroke: #526578; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_3">
+      <text style="fill: #526578; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="446.688" y="349.517969" transform="rotate(-0 446.688 349.517969)">10%</text>
+     </g>
+    </g>
+    <g id="xtick_4">
+     <g id="line2d_7">
+      <path d="M 546.912 332.64
+L 546.912 99.36
+" clip-path="url(#p2b1a02d502)" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_8">
+      <g>
+       <use xlink:href="#mfc0ef5d254" x="546.912" y="332.64" style="fill: #526578; stroke: #526578; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_4">
+      <text style="fill: #526578; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="546.912" y="349.517969" transform="rotate(-0 546.912 349.517969)">15%</text>
+     </g>
+    </g>
+    <g id="xtick_5">
+     <g id="line2d_9">
+      <path d="M 647.136 332.64
+L 647.136 99.36
+" clip-path="url(#p2b1a02d502)" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_10">
+      <g>
+       <use xlink:href="#mfc0ef5d254" x="647.136" y="332.64" style="fill: #526578; stroke: #526578; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_5">
+      <text style="fill: #526578; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="647.136" y="349.517969" transform="rotate(-0 647.136 349.517969)">20%</text>
+     </g>
+    </g>
+    <g id="xtick_6">
+     <g id="line2d_11">
+      <path d="M 747.36 332.64
+L 747.36 99.36
+" clip-path="url(#p2b1a02d502)" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_12">
+      <g>
+       <use xlink:href="#mfc0ef5d254" x="747.36" y="332.64" style="fill: #526578; stroke: #526578; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_6">
+      <text style="fill: #526578; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="747.36" y="349.517969" transform="rotate(-0 747.36 349.517969)">25%</text>
+     </g>
+    </g>
+    <g id="text_7">
+     <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: middle" x="496.8" y="374.099531" transform="rotate(-0 496.8 374.099531)">Character error rate</text>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_13"/>
+     <g id="text_8">
+      <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: end" x="228.24" y="126.26366" transform="rotate(-0 228.24 126.26366)">Identical</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_14"/>
+     <g id="text_9">
+      <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: end" x="228.24" y="173.601322" transform="rotate(-0 228.24 173.601322)">1 word substituted</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_15"/>
+     <g id="text_10">
+      <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: end" x="228.24" y="220.938984" transform="rotate(-0 228.24 220.938984)">1 word deleted</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_16"/>
+     <g id="text_11">
+      <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: end" x="228.24" y="268.276647" transform="rotate(-0 228.24 268.276647)">Identical mixed script</text>
+     </g>
+    </g>
+    <g id="ytick_5">
+     <g id="line2d_17"/>
+     <g id="text_12">
+      <text style="fill: #172b42; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: end" x="228.24" y="315.614309" transform="rotate(-0 228.24 315.614309)">Pooled: equal lengths</text>
+     </g>
+    </g>
+   </g>
+   <g id="patch_3">
+    <path d="M 246.24 109.963636
+L 246.24 109.963636
+L 246.24 132.685714
+L 246.24 132.685714
+z
+" clip-path="url(#p2b1a02d502)" style="fill: #2873ab"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 246.24 157.301299
+L 610.690909 157.301299
+L 610.690909 180.023377
+L 246.24 180.023377
+z
+" clip-path="url(#p2b1a02d502)" style="fill: #2873ab"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 246.24 204.638961
+L 675.771429 204.638961
+L 675.771429 227.361039
+L 246.24 227.361039
+z
+" clip-path="url(#p2b1a02d502)" style="fill: #2873ab"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 246.24 251.976623
+L 246.24 251.976623
+L 246.24 274.698701
+L 246.24 274.698701
+z
+" clip-path="url(#p2b1a02d502)" style="fill: #2873ab"/>
+   </g>
+   <g id="patch_7">
+    <path d="M 246.24 299.314286
+L 428.465455 299.314286
+L 428.465455 322.036364
+L 246.24 322.036364
+z
+" clip-path="url(#p2b1a02d502)" style="fill: #2873ab"/>
+   </g>
+   <g id="PathCollection_1">
+    <defs>
+     <path id="mfd8c1c1d1a" d="M 0 9.486833
+L 0 -9.486833
+" style="stroke: #172b42; stroke-width: 2.5"/>
+    </defs>
+    <g>
+     <use xlink:href="#mfd8c1c1d1a" x="246.24" y="121.324675" style="fill: #172b42; stroke: #172b42; stroke-width: 2.5"/>
+     <use xlink:href="#mfd8c1c1d1a" x="610.690909" y="168.662338" style="fill: #172b42; stroke: #172b42; stroke-width: 2.5"/>
+     <use xlink:href="#mfd8c1c1d1a" x="675.771429" y="216" style="fill: #172b42; stroke: #172b42; stroke-width: 2.5"/>
+     <use xlink:href="#mfd8c1c1d1a" x="246.24" y="263.337662" style="fill: #172b42; stroke: #172b42; stroke-width: 2.5"/>
+     <use xlink:href="#mfd8c1c1d1a" x="428.465455" y="310.675325" style="fill: #172b42; stroke: #172b42; stroke-width: 2.5"/>
+    </g>
+   </g>
+   <g id="patch_8">
+    <path d="M 246.24 332.64
+L 747.36 332.64
+" style="fill: none; stroke: #dce5ed; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_13">
+    <text style="fill: #172b42; font: 700 15px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="775.42272" y="125.463738" transform="rotate(-0 775.42272 125.463738)">0.0%</text>
+   </g>
+   <g id="text_14">
+    <text style="fill: #172b42; font: 700 15px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="775.42272" y="172.8014" transform="rotate(-0 775.42272 172.8014)">18.2%</text>
+   </g>
+   <g id="text_15">
+    <text style="fill: #172b42; font: 700 15px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="775.42272" y="220.139062" transform="rotate(-0 775.42272 220.139062)">21.4%</text>
+   </g>
+   <g id="text_16">
+    <text style="fill: #172b42; font: 700 15px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="775.42272" y="267.476725" transform="rotate(-0 775.42272 267.476725)">0.0%</text>
+   </g>
+   <g id="text_17">
+    <text style="fill: #172b42; font: 700 15px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="775.42272" y="314.814387" transform="rotate(-0 775.42272 314.814387)">9.1%</text>
+   </g>
+   <g id="legend_1">
+    <g id="PathCollection_2">
+     <g>
+      <use xlink:href="#mfd8c1c1d1a" x="556.389687" y="77.286444" style="fill: #172b42; stroke: #172b42; stroke-width: 2.5"/>
+     </g>
+    </g>
+    <g id="text_18">
+     <text style="fill: #172b42; font: 11px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="576.189687" y="80.173944" transform="rotate(-0 576.189687 80.173944)">Expected</text>
+    </g>
+    <g id="patch_9">
+     <path d="M 649.515 80.173944
+L 671.515 80.173944
+L 671.515 72.473944
+L 649.515 72.473944
+z
+" style="fill: #2873ab"/>
+    </g>
+    <g id="text_19">
+     <text style="fill: #172b42; font: 11px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="680.315" y="80.173944" transform="rotate(-0 680.315 80.173944)">Computed</text>
+    </g>
+   </g>
+  </g>
+  <g id="text_20">
+   <text style="fill: #172b42; font: 700 24px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="34.56" y="34.56" transform="rotate(-0 34.56 34.56)">Character error checks</text>
+  </g>
+  <g id="text_21">
+   <text style="fill: #526578; font: 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="34.56" y="62.64" transform="rotate(-0 34.56 62.64)">Raw text fixtures · no model predictions</text>
+  </g>
+  <g id="text_22">
+   <text style="fill: #146650; font: 700 13px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="34.56" y="399.6" transform="rotate(-0 34.56 399.6)">5 / 5 match · absolute tolerance 1e−12</text>
+  </g>
+  <g id="text_23">
+   <text style="fill: #526578; font: 12px 'DejaVu Sans', Arial, sans-serif; text-anchor: start" x="34.56" y="418.176" transform="rotate(-0 34.56 418.176)">CER counts Unicode code points, including spaces.</text>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p2b1a02d502">
+   <rect x="246.24" y="99.36" width="501.12" height="233.28"/>
+  </clipPath>
+ </defs>
+</svg>

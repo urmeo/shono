@@ -1,0 +1,305 @@
+"""Training orchestration with manifest preflight and generated evaluation."""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Mapping, Sequence
+from dataclasses import asdict
+from pathlib import Path
+from typing import Any
+
+from shono.data.audio_paths import (
+    DurationFn,
+    audio_duration,
+    file_sha256,
+    resolved_path,
+    validate_audio_window,
+    validate_manifest_audio,
+)
+from shono.data.leakage import audit_leakage, require_no_leakage
+from shono.data.license import LicenseRegistry
+from shono.data.manifest import Manifest
+from shono.output_paths import write_text_atomic
+from shono.train.checkpoint import decide_resume
+from shono.train.config import TrainConfig
+from shono.train.data import build_examples
+from shono.train.output import validate_training_output
+from shono.train.source import checkpoint_identity
+from shono.validation import json_object
+
+
+def to_training_arguments(config: TrainConfig, **overrides: Any):
+    """Convert training settings to Transformers arguments."""
+    from transformers import Seq2SeqTrainingArguments
+
+    args = {
+        "output_dir": config.output_dir,
+        "per_device_train_batch_size": config.per_device_batch_size,
+        "per_device_eval_batch_size": config.per_device_batch_size,
+        "gradient_accumulation_steps": config.gradient_accumulation_steps,
+        "learning_rate": config.learning_rate,
+        "lr_scheduler_type": config.lr_scheduler_type,
+        "warmup_steps": config.warmup_steps,
+        "weight_decay": config.weight_decay,
+        "num_train_epochs": config.num_train_epochs,
+        "max_steps": config.max_steps,
+        "fp16": config.fp16,
+        "gradient_checkpointing": config.gradient_checkpointing,
+        "optim": config.optim,
+        "save_steps": config.save_steps,
+        "eval_steps": config.eval_steps,
+        "eval_strategy": "steps",
+        "logging_steps": config.logging_steps,
+        "save_total_limit": config.save_total_limit,
+        "predict_with_generate": True,
+        "seed": config.seed,
+        "report_to": [],
+    }
+    args.update(overrides)
+    return Seq2SeqTrainingArguments(**args)
+
+
+class DataCollatorSpeechSeq2Seq:
+    """Pad audio features, attention masks and decoder labels into a batch."""
+
+    def __init__(self, processor: Any, decoder_start_token_id: int) -> None:
+        self.processor = processor
+        self.decoder_start_token_id = decoder_start_token_id
+
+    def __call__(self, features: list[dict]) -> dict:
+        if not features or any(not feature["labels"] for feature in features):
+            raise ValueError("collator requires nonempty items and labels")
+        input_features = [
+            {
+                "input_features": feature["input_features"],
+                "attention_mask": feature["attention_mask"],
+            }
+            for feature in features
+        ]
+        batch = self.processor.feature_extractor.pad(input_features, return_tensors="pt")
+        label_features = [{"input_ids": feature["labels"]} for feature in features]
+        labels_batch = self.processor.tokenizer.pad(label_features, return_tensors="pt")
+        labels = labels_batch["input_ids"].masked_fill(labels_batch.attention_mask.ne(1), -100)
+        starts = labels[:, 0] == self.decoder_start_token_id
+        any_start = starts.any().cpu().item()
+        all_start = starts.all().cpu().item()
+        if any_start and not all_start:
+            raise ValueError("batch mixes decoder-start conventions")
+        if all_start:
+            labels = labels[:, 1:]
+        batch["labels"] = labels
+        return batch
+
+
+def build_compute_metrics(processor: Any):
+    """Build a metrics callback using Shono's versioned normalizer."""
+    from shono.eval.score import score
+
+    def compute_metrics(predictions) -> dict:
+        import numpy as np
+
+        prediction_ids = np.where(
+            predictions.predictions == -100,
+            processor.tokenizer.pad_token_id,
+            predictions.predictions,
+        )
+        label_ids = np.where(
+            predictions.label_ids == -100, processor.tokenizer.pad_token_id, predictions.label_ids
+        )
+        hypotheses = processor.tokenizer.batch_decode(prediction_ids, skip_special_tokens=True)
+        references = processor.tokenizer.batch_decode(label_ids, skip_special_tokens=True)
+        report = score(references, hypotheses)
+        return {"wer": report.wer_normalized, "cer": report.cer_normalized}
+
+    return compute_metrics
+
+
+def run_training(
+    config: TrainConfig,
+    train_manifests: Sequence[Manifest],
+    eval_manifests: Sequence[Manifest],
+    *,
+    registry: LicenseRegistry,
+    audio_root: str | Path,
+    held_out_manifests: Sequence[Manifest] = (),
+    text_decisions: Mapping[str, Mapping[str, str]] | None = None,
+    duration_of: DurationFn | None = None,
+):
+    """Validate manifests before loading a model, then train, evaluate and save."""
+    if not isinstance(config, TrainConfig):
+        raise ValueError("config must be TrainConfig")
+    all_manifests = [*train_manifests, *eval_manifests, *held_out_manifests]
+    if not all_manifests or any(not isinstance(m, Manifest) for m in all_manifests):
+        raise ValueError("training requires source manifests, not detached examples")
+    if not eval_manifests or any(m.split != "dev" for m in eval_manifests):
+        raise ValueError("training evaluation requires development manifests")
+    if len({m.name for m in all_manifests}) != len(all_manifests):
+        raise ValueError("training/development/held-out manifest names must be distinct")
+    selection = dict(
+        chunk_length_s=config.chunk_length_s,
+        min_chunk_length_s=config.min_chunk_length_s,
+        timestamp_sample_fraction=config.timestamp_sample_fraction,
+        seed=config.seed,
+        registry=registry,
+    )
+    train_examples = build_examples(train_manifests, **selection)
+    selection["timestamp_sample_fraction"] = 0.0
+    eval_examples = build_examples(eval_manifests, role="eval", **selection)
+    decisions = {} if text_decisions is None else text_decisions
+    evaluation = [*eval_manifests, *held_out_manifests]
+    if not isinstance(decisions, Mapping) or set(decisions) - {m.name for m in evaluation}:
+        raise ValueError("text_decisions has unknown evaluation manifest names")
+    audio_root = resolved_path(audio_root)
+    audio_files: dict[str, str] = {}
+    durations: dict[Path, float] = {}
+
+    def read_duration(path: Path) -> float:
+        if path not in durations:
+            durations[path] = (duration_of or audio_duration)(path)
+        return durations[path]
+
+    for manifest in all_manifests:
+        manifest.validate_against(registry, training=manifest in train_manifests)
+        if any(seg.language != config.language for seg in manifest.segments):
+            raise ValueError(f"manifest {manifest.name!r}: language conflicts with training config")
+        paths = validate_manifest_audio(manifest, audio_root, duration_of=read_duration)
+        for path in paths:
+            relative = path.relative_to(audio_root).as_posix()
+            if relative not in audio_files:
+                audio_files[relative] = file_sha256(path)
+    for examples in (train_examples, eval_examples):
+        windows = set()
+        for example in examples:
+            path = resolved_path(audio_root / example.audio)
+            window = (
+                audio_files[path.relative_to(audio_root).as_posix()],
+                example.start_s or 0.0,
+                validate_audio_window(
+                    path, example.start_s, example.duration_s, duration_of=read_duration
+                ),
+            )
+            if window in windows:
+                raise ValueError(
+                    "duplicate training/evaluation audio windows, including file aliases"
+                )
+            windows.add(window)
+    for manifest in held_out_manifests:
+        development_audit = audit_leakage(eval_manifests, manifest, audio_root=audio_root)
+        if any(overlap.kind != "text" for overlap in development_audit.overlaps):
+            raise ValueError(f"hard development/held-out overlap: {development_audit.summary()}")
+    audits = [
+        require_no_leakage(
+            train_manifests,
+            manifest,
+            text_decisions=decisions.get(manifest.name),
+            audio_root=audio_root,
+        )
+        for manifest in evaluation
+    ]
+    base_checkpoint = checkpoint_identity(config.model_id, config.model_revision)
+    out = validate_training_output(
+        config.output_dir, audio_root, checkpoint_root=base_checkpoint.get("path")
+    )
+    if base_checkpoint["source"] == "local":
+        model_id = base_checkpoint["path"]
+        load_options = {"local_files_only": True}
+    else:
+        model_id = config.model_id
+        load_options = {"revision": config.model_revision}
+    resume = decide_resume(out, enabled=config.resume)
+    training_config = config.to_dict()
+    del training_config["resume"]
+    identity = json.loads(
+        json.dumps(
+            {
+                "config": training_config,
+                "base_checkpoint": base_checkpoint,
+                "manifests": [asdict(m) for m in all_manifests],
+                "audio_files_sha256": audio_files,
+                "leakage": [asdict(report) for report in audits],
+            },
+            allow_nan=False,
+        )
+    )
+    identity_path = out / "training-inputs.json"
+    if not resolved_path(identity_path).is_relative_to(out):
+        raise ValueError("training identity path escapes output_dir")
+    if identity_path.exists():
+        try:
+            prior = json_object(identity_path.read_text(encoding="utf-8"), str(identity_path))
+        except (ValueError, OSError) as exc:
+            raise ValueError("cannot read prior training identity") from exc
+        if isinstance(prior.get("config"), dict):
+            prior["config"].pop("resume", None)
+            if "audio_files_sha256" not in prior:
+                if prior.get("manifests") != identity["manifests"] or any(
+                    seg.audio_sha256 is None
+                    for manifest in all_manifests
+                    for seg in manifest.segments
+                ):
+                    raise ValueError(
+                        "prior training identity has no verifiable audio hashes; "
+                        "choose a new output"
+                    )
+                prior["audio_files_sha256"] = audio_files
+        if prior != identity:
+            raise ValueError(
+                "output_dir contains a different training identity; choose a new output"
+            )
+    elif resume.resume:
+        raise ValueError("checkpoint has no declared training identity; choose a new output")
+    from transformers import (
+        Seq2SeqTrainer,
+        WhisperConfig,
+        WhisperForConditionalGeneration,
+        WhisperProcessor,
+    )
+
+    from shono.train.audio import WhisperFineTuneDataset
+
+    processor = WhisperProcessor.from_pretrained(
+        model_id, language=config.language, task=config.task, **load_options
+    )
+    model_config = WhisperConfig.from_pretrained(model_id, **load_options)
+    dataset_options = dict(
+        audio_root=audio_root,
+        max_target_positions=model_config.max_target_positions,
+        decoder_start_token_id=model_config.decoder_start_token_id,
+    )
+    train_dataset = WhisperFineTuneDataset(train_examples, processor, config, **dataset_options)
+    eval_dataset = WhisperFineTuneDataset(eval_examples, processor, config, **dataset_options)
+    train_dataset.validate_labels()
+    eval_dataset.validate_labels()
+    model = WhisperForConditionalGeneration.from_pretrained(model_id, **load_options)
+    if checkpoint_identity(config.model_id, config.model_revision) != base_checkpoint:
+        raise ValueError("local base checkpoint changed while loading")
+    model.generation_config.language = config.language
+    model.generation_config.task = config.task
+    model.generation_config.return_timestamps = False
+    model.generation_config.max_length = model_config.max_target_positions
+    model.generation_config.forced_decoder_ids = None
+    if config.gradient_checkpointing:
+        model.config.use_cache = False
+    if config.freeze_encoder:
+        if not callable(getattr(model, "freeze_encoder", None)):
+            raise ValueError("model does not support freeze_encoder")
+        model.freeze_encoder()
+    collator = DataCollatorSpeechSeq2Seq(processor, model.config.decoder_start_token_id)
+
+    out.mkdir(parents=True, exist_ok=True)
+    write_text_atomic(
+        identity_path, json.dumps(identity, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    )
+    trainer = Seq2SeqTrainer(
+        model=model,
+        args=to_training_arguments(config),
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        data_collator=collator,
+        compute_metrics=build_compute_metrics(processor),
+        processing_class=processor,
+    )
+    result = trainer.train(resume_from_checkpoint=str(resume.checkpoint) if resume.resume else None)
+    evaluation_metrics = trainer.evaluate()
+    trainer.save_model(config.output_dir)
+    return {**result.metrics, **evaluation_metrics}

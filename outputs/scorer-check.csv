@@ -1,0 +1,12 @@
+case,metric,expected,actual
+identical,wer,0.0,0.0
+identical,cer,0.0,0.0
+one_word_substituted,wer,0.3333333333333333,0.3333333333333333
+one_word_substituted,cer,0.18181818181818182,0.18181818181818182
+one_word_deleted,wer,0.25,0.25
+one_word_deleted,cer,0.21428571428571427,0.21428571428571427
+code_switch_identical,wer,0.0,0.0
+code_switch_identical,cer,0.0,0.0
+corpus_pools_errors_across_segments,wer,0.16666666666666666,0.16666666666666666
+corpus_pools_errors_across_segments,cer,0.09090909090909091,0.09090909090909091
+pooled_not_averaged_unequal_segments,wer,0.25,0.25
